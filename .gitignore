@@ -1,0 +1,5 @@
+.idea
+target/
+dependency-reduced-pom.xml
+session-cache-*
+pom.xml.versionsBackup
