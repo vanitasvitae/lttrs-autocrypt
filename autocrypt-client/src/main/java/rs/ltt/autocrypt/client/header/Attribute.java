@@ -21,38 +21,31 @@ public class Attribute {
 
 
     public static List<Attribute> parse(final String attributes) {
-        final ImmutableList.Builder<Attribute> builder = new ImmutableList.Builder<>();
-        StringBuilder keyBuilder = new StringBuilder();
-        StringBuilder valueBuilder = null;
+        final ImmutableList.Builder<Attribute> listBuilder = new ImmutableList.Builder<>();
+        final ContinuousAttributeBuilder attributeBuilder = new ContinuousAttributeBuilder();
         boolean inQuote = false;
         for (final char c : attributes.toCharArray()) {
             if (!inQuote) {
                 if (c == ';') {
-                    builder.add(of(keyBuilder, valueBuilder));
-                    keyBuilder = new StringBuilder();
-                    valueBuilder = null;
+                    listBuilder.add(attributeBuilder.build());
                     continue;
-                } else if (c == '=' && valueBuilder == null) {
-                    valueBuilder = new StringBuilder();
+                } else if (c == '=' && attributeBuilder.isReadingAttributeName()) {
+                    attributeBuilder.beginValue();
                     continue;
                 }
             }
             if (c == '"') {
                 inQuote = !inQuote;
             }
-            if (valueBuilder != null) {
-                valueBuilder.append(c);
-            } else if (!Character.isWhitespace(c) || keyBuilder.length() > 0) {
-                keyBuilder.append(c);
-            }
+            attributeBuilder.append(c);
         }
         if (inQuote) {
             throw new IllegalArgumentException("Unexpected end (quotation not closed)");
         }
-        if (keyBuilder.length() > 0 || valueBuilder != null) {
-            builder.add(of(keyBuilder, valueBuilder));
+        if (attributeBuilder.hasPendingAttribute()) {
+            listBuilder.add(attributeBuilder.build());
         }
-        return builder.build();
+        return listBuilder.build();
     }
 
     private static Attribute of(final StringBuilder keyBuilder, final StringBuilder valueBuilder) {
@@ -62,5 +55,37 @@ public class Attribute {
             throw new IllegalArgumentException("Attribute name can not be empty");
         }
         return new Attribute(keyBuilder.toString(), valueBuilder == null ? null : valueBuilder.toString());
+    }
+
+    private static class ContinuousAttributeBuilder {
+        private StringBuilder keyBuilder = new StringBuilder();
+        private StringBuilder valueBuilder = null;
+
+        public Attribute build() {
+            final Attribute attribute = Attribute.of(keyBuilder, valueBuilder);
+            this.keyBuilder = new StringBuilder();
+            this.valueBuilder = null;
+            return attribute;
+        }
+
+        public void beginValue() {
+            this.valueBuilder = new StringBuilder();
+        }
+
+        public boolean isReadingAttributeName() {
+            return this.valueBuilder == null;
+        }
+
+        public boolean hasPendingAttribute() {
+            return keyBuilder.length() > 0 || valueBuilder != null;
+        }
+
+        public void append(final char c) {
+            if (valueBuilder != null) {
+                valueBuilder.append(c);
+            } else if (!Character.isWhitespace(c) || keyBuilder.length() > 0) {
+                keyBuilder.append(c);
+            }
+        }
     }
 }
