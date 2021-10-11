@@ -38,9 +38,9 @@ public class AutocryptHeaderTest {
 
     @Test
     public void semicolonInEmail() {
-        final AutocryptHeader autocryptHeader = AutocryptHeader.parse("addr=\";test;\"@example.com; prefer-encrypt=mutual;");
+        final AutocryptHeader autocryptHeader = AutocryptHeader.parse("addr=\";test;\"@example.com; prefer-encrypt=nopreference;");
         Assertions.assertEquals("\";test;\"@example.com", autocryptHeader.getAddress());
-        Assertions.assertEquals(EncryptionPreference.MUTUAL, autocryptHeader.getEncryptionPreference());
+        Assertions.assertEquals(EncryptionPreference.NO_PREFERENCE, autocryptHeader.getEncryptionPreference());
     }
 
     @Test
@@ -59,5 +59,14 @@ public class AutocryptHeaderTest {
                 () -> AutocryptHeader.parse("key=\"value")
         );
         Assertions.assertEquals("Unexpected end (quotation not closed)", exception.getMessage());
+    }
+
+    @Test
+    public void invalidPreference() {
+        final IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> AutocryptHeader.parse("prefer-encrypt=invalid")
+        );
+        Assertions.assertEquals("invalid is not a known encryption preference", exception.getMessage());
     }
 }
