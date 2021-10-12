@@ -69,4 +69,13 @@ public class AutocryptHeaderTest {
         );
         Assertions.assertEquals("invalid is not a known encryption preference", exception.getMessage());
     }
+
+    @Test
+    public void emptyKeyData() {
+        final IllegalArgumentException exception = Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> AutocryptHeader.parse("addr=test@example.com; keydata=;")
+        );
+        Assertions.assertEquals("Value for keydata can not be empty", exception.getMessage());
+    }
 }
