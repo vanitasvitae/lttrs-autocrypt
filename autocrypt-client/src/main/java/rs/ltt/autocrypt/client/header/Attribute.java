@@ -2,10 +2,9 @@ package rs.ltt.autocrypt.client.header;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import java.util.List;
 import lombok.Getter;
 import lombok.ToString;
-
-import java.util.List;
 
 @Getter
 @ToString
@@ -18,7 +17,6 @@ public class Attribute {
         this.key = key;
         this.value = value;
     }
-
 
     public static List<Attribute> parse(final String attributes) {
         final ImmutableList.Builder<Attribute> listBuilder = new ImmutableList.Builder<>();
@@ -54,7 +52,8 @@ public class Attribute {
         if (key.isEmpty()) {
             throw new IllegalArgumentException("Attribute name can not be empty");
         }
-        return new Attribute(keyBuilder.toString(), valueBuilder == null ? null : valueBuilder.toString());
+        return new Attribute(
+                keyBuilder.toString(), valueBuilder == null ? null : valueBuilder.toString());
     }
 
     private static class ContinuousAttributeBuilder {

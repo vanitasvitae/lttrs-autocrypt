@@ -31,12 +31,12 @@ public class AutocryptHeader {
                 if (Strings.isNullOrEmpty(value)) {
                     throw new IllegalArgumentException("Value for keydata can not be empty");
                 }
-                builder.keyData(BaseEncoding.base64().decode(CharMatcher.whitespace().removeFrom(value)));
+                builder.keyData(
+                        BaseEncoding.base64().decode(CharMatcher.whitespace().removeFrom(value)));
             } else if (key.charAt(0) != '_') {
                 throw new IllegalArgumentException(String.format("Unexpected attribute %s", key));
             }
         }
         return builder.build();
     }
-
 }
