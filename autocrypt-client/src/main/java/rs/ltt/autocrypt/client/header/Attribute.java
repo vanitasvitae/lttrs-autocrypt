@@ -3,11 +3,7 @@ package rs.ltt.autocrypt.client.header;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.List;
-import lombok.Getter;
-import lombok.ToString;
 
-@Getter
-@ToString
 public class Attribute {
 
     private final String key;
@@ -54,6 +50,14 @@ public class Attribute {
         }
         return new Attribute(
                 keyBuilder.toString(), valueBuilder == null ? null : valueBuilder.toString());
+    }
+
+    public String getKey() {
+        return key;
+    }
+
+    public String getValue() {
+        return value;
     }
 
     private static class ContinuousAttributeBuilder {

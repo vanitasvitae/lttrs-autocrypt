@@ -3,23 +3,27 @@ package rs.ltt.autocrypt.client.header;
 import com.google.common.base.CharMatcher;
 import com.google.common.base.Strings;
 import com.google.common.io.BaseEncoding;
-import lombok.Builder;
-import lombok.Getter;
+import javax.annotation.Nullable;
+import org.immutables.value.Value;
 
-@Builder
-@Getter
-public class AutocryptHeader {
+@Value.Immutable
+public abstract class AutocryptHeader {
 
     private static final String KEY_ADDRESS = "addr";
     private static final String KEY_ENCRYPTION_PREFERENCE = "prefer-encrypt";
     private static final String KEY_KEY_DATA = "keydata";
 
-    private final String address;
-    private final EncryptionPreference encryptionPreference;
-    private final byte[] keyData;
+    @Nullable
+    public abstract String getAddress();
+
+    @Nullable
+    public abstract EncryptionPreference getEncryptionPreference();
+
+    @Nullable
+    public abstract byte[] getKeyData();
 
     public static AutocryptHeader parse(final String header) {
-        final AutocryptHeaderBuilder builder = new AutocryptHeaderBuilder();
+        final ImmutableAutocryptHeader.Builder builder = ImmutableAutocryptHeader.builder();
         for (final Attribute attribute : Attribute.parse(header)) {
             final String key = attribute.getKey();
             final String value = attribute.getValue();
