@@ -35,14 +35,15 @@ public class AutocryptHeaderTest {
     @Test
     public void testIgnoredKey() {
         final AutocryptHeader autocryptHeader =
-                AutocryptHeader.parse("_ignored=bar; addr=test@example.com");
+                AutocryptHeader.parse("_ignored=bar; addr=test@example.com; keydata=AAo=");
         Assertions.assertEquals("test@example.com", autocryptHeader.getAddress());
     }
 
     @Test
     public void semicolonInEmail() {
         final AutocryptHeader autocryptHeader =
-                AutocryptHeader.parse("addr=\";test;\"@example.com; prefer-encrypt=nopreference;");
+                AutocryptHeader.parse(
+                        "addr=\";test;\"@example.com; prefer-encrypt=nopreference; keydata=AAo=");
         Assertions.assertEquals("\";test;\"@example.com", autocryptHeader.getAddress());
         Assertions.assertEquals(
                 EncryptionPreference.NO_PREFERENCE, autocryptHeader.getEncryptionPreference());

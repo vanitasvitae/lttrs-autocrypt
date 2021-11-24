@@ -13,13 +13,11 @@ public abstract class AutocryptHeader {
     private static final String KEY_ENCRYPTION_PREFERENCE = "prefer-encrypt";
     private static final String KEY_KEY_DATA = "keydata";
 
-    @Nullable
     public abstract String getAddress();
 
     @Nullable
     public abstract EncryptionPreference getEncryptionPreference();
 
-    @Nullable
     public abstract byte[] getKeyData();
 
     public static AutocryptHeader parse(final String header) {
