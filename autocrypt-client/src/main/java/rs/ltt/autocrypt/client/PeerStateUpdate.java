@@ -25,7 +25,9 @@ public class PeerStateUpdate extends AbstractAutocryptUpdate {
     }
 
     public EncryptionPreference getEncryptionPreference() {
-        return encryptionPreference;
+        return encryptionPreference == null
+                ? EncryptionPreference.NO_PREFERENCE
+                : encryptionPreference;
     }
 
     public static class Builder {

@@ -3,6 +3,7 @@ package rs.ltt.autocrypt.client;
 import java.time.Instant;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import rs.ltt.autocrypt.client.header.EncryptionPreference;
 
 public class PeerStateUpdateTest {
 
@@ -15,10 +16,13 @@ public class PeerStateUpdateTest {
 
     @Test
     public void oneValidHeader() {
-        final PeerStateUpdate.Builder builder =
-                PeerStateUpdate.builder("test@example.com", Instant.now());
-        builder.add("addr=test@example.com; keydata=AAo=");
-        builder.build();
+        final PeerStateUpdate peerStateUpdate =
+                PeerStateUpdate.builder("test@example.com", Instant.now())
+                        .add("addr=test@example.com; keydata=AAo=")
+                        .build();
+        Assertions.assertEquals("test@example.com", peerStateUpdate.getFrom());
+        Assertions.assertEquals(
+                EncryptionPreference.NO_PREFERENCE, peerStateUpdate.getEncryptionPreference());
     }
 
     @Test
@@ -36,11 +40,11 @@ public class PeerStateUpdateTest {
 
     @Test
     public void oneValidOneInvalidHeader() {
-        final PeerStateUpdate.Builder builder =
-                PeerStateUpdate.builder("test@example.com", Instant.now());
-        builder.add("addr=test@example.com; keydata=AAo=");
-        builder.add("addr=test@example.com; keydata=AAo=; invalid=attribute");
-        builder.build();
+        Assertions.assertNotNull(
+                PeerStateUpdate.builder("test@example.com", Instant.now())
+                        .add("addr=test@example.com; keydata=AAo=")
+                        .add("addr=test@example.com; keydata=AAo=; invalid=attribute")
+                        .build());
     }
 
     @Test
