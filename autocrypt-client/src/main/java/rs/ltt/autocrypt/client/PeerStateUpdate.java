@@ -3,6 +3,7 @@ package rs.ltt.autocrypt.client;
 import com.google.common.base.Preconditions;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
@@ -40,6 +41,13 @@ public class PeerStateUpdate extends AbstractAutocryptUpdate {
             Preconditions.checkNotNull(effectiveDate);
             this.from = from;
             this.effectiveDate = effectiveDate;
+        }
+
+        public Builder addAll(final Collection<String> headers) {
+            for (final String header : headers) {
+                add(header);
+            }
+            return this;
         }
 
         public Builder add(final String header) {
