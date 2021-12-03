@@ -60,6 +60,10 @@ public class Attribute {
         return value;
     }
 
+    String formatted() {
+        return String.format("%s=%s", key, value);
+    }
+
     private static class ContinuousAttributeBuilder {
         private StringBuilder keyBuilder = new StringBuilder();
         private StringBuilder valueBuilder = null;

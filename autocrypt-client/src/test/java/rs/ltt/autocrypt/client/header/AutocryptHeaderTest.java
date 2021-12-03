@@ -40,6 +40,13 @@ public class AutocryptHeaderTest {
     }
 
     @Test
+    public void parseAndFormat() {
+        final String value = "addr=test@example.com; keydata=AAo=";
+        final AutocryptHeader autocryptHeader = AutocryptHeader.parse(value);
+        Assertions.assertEquals(value, autocryptHeader.toHeaderValue());
+    }
+
+    @Test
     public void semicolonInEmail() {
         final AutocryptHeader autocryptHeader =
                 AutocryptHeader.parse(
