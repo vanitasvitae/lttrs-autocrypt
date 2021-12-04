@@ -1,7 +1,16 @@
 package rs.ltt.autocrypt.client.header;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.startsWith;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import java.security.InvalidAlgorithmParameterException;
+import java.security.NoSuchAlgorithmException;
+import org.bouncycastle.openpgp.PGPException;
+import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.pgpainless.PGPainless;
 
 public class AutocryptHeaderTest {
 
@@ -89,5 +98,18 @@ public class AutocryptHeaderTest {
                         IllegalArgumentException.class,
                         () -> AutocryptHeader.parse("addr=test@example.com; keydata=;"));
         Assertions.assertEquals("Value for keydata can not be empty", exception.getMessage());
+    }
+
+    @Test
+    public void createFromKey()
+            throws PGPException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
+        final PGPSecretKeyRing secretKey =
+                PGPainless.generateKeyRing()
+                        .modernKeyRing("Alice Secret <alice.secret@example.com>", null);
+        final AutocryptHeader header =
+                AutocryptHeader.of(secretKey, EncryptionPreference.NO_PREFERENCE);
+        final String headerValue = header.toHeaderValue();
+        assertThat(headerValue, startsWith("addr=alice.secret@example.com;"));
+        assertThat(headerValue, containsString("prefer-encrypt=nopreference"));
     }
 }

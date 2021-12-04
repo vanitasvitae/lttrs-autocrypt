@@ -6,9 +6,17 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
+import java.io.IOException;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.immutables.value.Value;
+import org.pgpainless.PGPainless;
+import org.pgpainless.key.info.KeyRingInfo;
+import org.pgpainless.key.util.KeyRingUtils;
 
 @Value.Immutable
 public abstract class AutocryptHeader {
@@ -16,6 +24,8 @@ public abstract class AutocryptHeader {
     private static final String KEY_ADDRESS = "addr";
     private static final String KEY_ENCRYPTION_PREFERENCE = "prefer-encrypt";
     private static final String KEY_KEY_DATA = "keydata";
+
+    private static final Pattern ANGLE_ADDR_PATTERN = Pattern.compile("<(.+?)>");
 
     public static AutocryptHeader parse(final String header) {
         final ImmutableAutocryptHeader.Builder builder = ImmutableAutocryptHeader.builder();
@@ -39,6 +49,51 @@ public abstract class AutocryptHeader {
         return builder.build();
     }
 
+    public static AutocryptHeader of(
+            final String from,
+            final PGPSecretKeyRing secretKeyRing,
+            final EncryptionPreference preference) {
+        return of(from, KeyRingUtils.publicKeyRingFrom(secretKeyRing), preference);
+    }
+
+    public static AutocryptHeader of(
+            final String from,
+            final PGPPublicKeyRing publicKeyRing,
+            final EncryptionPreference preference) {
+        return ImmutableAutocryptHeader.builder()
+                .address(from)
+                .keyData(keyData(publicKeyRing))
+                .encryptionPreference(preference)
+                .build();
+    }
+
+    private static byte[] keyData(final PGPPublicKeyRing publicKeyRing) {
+        try {
+            return publicKeyRing.getEncoded();
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    public static AutocryptHeader of(
+            final PGPSecretKeyRing secretKeyRing, final EncryptionPreference preference) {
+        return of(KeyRingUtils.publicKeyRingFrom(secretKeyRing), preference);
+    }
+
+    public static AutocryptHeader of(
+            final PGPPublicKeyRing publicKeyRing, final EncryptionPreference preference) {
+        final KeyRingInfo keyInfo = PGPainless.inspectKeyRing(publicKeyRing);
+        final String userId = keyInfo.getPrimaryUserId();
+        if (Strings.isNullOrEmpty(userId)) {
+            throw new IllegalArgumentException("PublicKeyRing does not contain a primary user id");
+        }
+        final Matcher matcher = ANGLE_ADDR_PATTERN.matcher(userId);
+        if (matcher.find()) {
+            return of(matcher.group(1), publicKeyRing, preference);
+        }
+        throw new IllegalArgumentException("UserId does not follow angle-addr convention");
+    }
+
     public String toHeaderValue() {
         return Joiner.on("; ").join(Lists.transform(toAttributes(), Attribute::formatted));
     }
@@ -46,14 +101,14 @@ public abstract class AutocryptHeader {
     private List<Attribute> toAttributes() {
         final ImmutableList.Builder<Attribute> attributes = new ImmutableList.Builder<>();
         attributes.add(new Attribute(KEY_ADDRESS, getAddress()));
-        final byte[] keyData = getKeyData();
-        if (keyData != null) {
-            attributes.add(new Attribute(KEY_KEY_DATA, BaseEncoding.base64().encode(keyData)));
-        }
         final EncryptionPreference encryptionPreference = getEncryptionPreference();
         if (encryptionPreference != null) {
             attributes.add(
                     new Attribute(KEY_ENCRYPTION_PREFERENCE, encryptionPreference.toString()));
+        }
+        final byte[] keyData = getKeyData();
+        if (keyData != null) {
+            attributes.add(new Attribute(KEY_KEY_DATA, BaseEncoding.base64().encode(keyData)));
         }
         return attributes.build();
     }
