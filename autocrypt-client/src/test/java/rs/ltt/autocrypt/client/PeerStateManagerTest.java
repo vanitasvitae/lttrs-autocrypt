@@ -11,8 +11,10 @@ import rs.ltt.autocrypt.client.storage.Storage;
 
 public class PeerStateManagerTest {
 
-    private static final Instant EFFECTIVE_DATE_INITIAL = Instant.ofEpochSecond(1638233000);
-    private static final Instant EFFECTIVE_DATE_UPDATE = Instant.ofEpochSecond(1638333100);
+    private static final Instant EFFECTIVE_DATE_INITIAL = Instant.ofEpochSecond(1_500_000_000);
+    private static final Instant EFFECTIVE_DATE_UPDATE = Instant.ofEpochSecond(1_600_000_000);
+    private static final Instant EFFECTIVE_DATE_EARLIER_UPDATE =
+            Instant.ofEpochSecond(1_550_000_000);
 
     @Test
     public void processHeader() {
@@ -58,6 +60,9 @@ public class PeerStateManagerTest {
 
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_UPDATE, Collections.emptyList());
+
+        peerStateManager.processAutocryptHeaders(
+                "test@example.com", EFFECTIVE_DATE_EARLIER_UPDATE, Collections.emptyList());
 
         final PeerState peerState = storage.getPeerState("test@example.com");
         Assertions.assertNotNull(peerState);
