@@ -11,23 +11,60 @@ import rs.ltt.autocrypt.client.storage.Storage;
 
 public class PeerStateManagerTest {
 
+    private static final Instant EFFECTIVE_DATE_INITIAL = Instant.ofEpochSecond(1638233000);
+    private static final Instant EFFECTIVE_DATE_UPDATE = Instant.ofEpochSecond(1638333100);
+
     @Test
     public void processHeader() {
         final Storage storage = new InMemoryStorage();
         final PeerStateManager peerStateManager = new PeerStateManager(storage);
 
-        final Instant effectiveDate = Instant.now();
-
         peerStateManager.processAutocryptHeaders(
                 "test@example.com",
-                effectiveDate,
+                EFFECTIVE_DATE_INITIAL,
                 Collections.singleton("addr=test@example.com; keydata=AAo="));
         final PeerState peerState = storage.getPeerState("test@example.com");
         Assertions.assertNotNull(peerState);
 
-        Assertions.assertEquals(effectiveDate, peerState.getLastSeen());
-        Assertions.assertEquals(effectiveDate, peerState.getAutocryptTimestamp());
+        Assertions.assertEquals(EFFECTIVE_DATE_INITIAL, peerState.getLastSeen());
+        Assertions.assertEquals(EFFECTIVE_DATE_INITIAL, peerState.getAutocryptTimestamp());
         Assertions.assertEquals(
                 EncryptionPreference.NO_PREFERENCE, peerState.getEncryptionPreference());
+    }
+
+    @Test
+    public void processEmptyHeader() {
+        final Storage storage = new InMemoryStorage();
+        final PeerStateManager peerStateManager = new PeerStateManager(storage);
+
+        peerStateManager.processAutocryptHeaders(
+                "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.emptyList());
+        final PeerState peerState = storage.getPeerState("test@example.com");
+        Assertions.assertNotNull(peerState);
+
+        Assertions.assertEquals(EFFECTIVE_DATE_INITIAL, peerState.getLastSeen());
+        Assertions.assertNull(peerState.getPublicKey());
+    }
+
+    @Test
+    public void processHeaderAndUpdate() {
+        final Storage storage = new InMemoryStorage();
+        final PeerStateManager peerStateManager = new PeerStateManager(storage);
+
+        peerStateManager.processAutocryptHeaders(
+                "test@example.com",
+                EFFECTIVE_DATE_INITIAL,
+                Collections.singleton("addr=test@example.com; keydata=AAo="));
+
+        peerStateManager.processAutocryptHeaders(
+                "test@example.com", EFFECTIVE_DATE_UPDATE, Collections.emptyList());
+
+        final PeerState peerState = storage.getPeerState("test@example.com");
+        Assertions.assertNotNull(peerState);
+
+        Assertions.assertEquals(EFFECTIVE_DATE_UPDATE, peerState.getLastSeen());
+        Assertions.assertEquals(EFFECTIVE_DATE_INITIAL, peerState.getAutocryptTimestamp());
+
+        Assertions.assertNotNull(peerState.getPublicKey());
     }
 }
