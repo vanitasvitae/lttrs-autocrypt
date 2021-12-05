@@ -104,12 +104,11 @@ public class AutocryptHeaderTest {
     public void createFromKey()
             throws PGPException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         final PGPSecretKeyRing secretKey =
-                PGPainless.generateKeyRing()
-                        .modernKeyRing("Alice Secret <alice.secret@example.com>", null);
+                PGPainless.generateKeyRing().modernKeyRing("Test Test <test@example.com>", null);
         final AutocryptHeader header =
                 AutocryptHeader.of(secretKey, EncryptionPreference.NO_PREFERENCE);
         final String headerValue = header.toHeaderValue();
-        assertThat(headerValue, startsWith("addr=alice.secret@example.com;"));
+        assertThat(headerValue, startsWith("addr=test@example.com;"));
         assertThat(headerValue, containsString("prefer-encrypt=nopreference"));
     }
 }

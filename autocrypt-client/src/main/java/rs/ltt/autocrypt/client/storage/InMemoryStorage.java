@@ -91,8 +91,18 @@ public class InMemoryStorage implements Storage {
         }
 
         @Override
+        public Instant getGossipTimestamp() {
+            return null;
+        }
+
+        @Override
         public byte[] getPublicKey() {
             return this.publicKey;
+        }
+
+        @Override
+        public byte[] getGossipKey() {
+            return null;
         }
 
         @Override

@@ -1,9 +1,7 @@
 package rs.ltt.autocrypt.client;
 
-import java.io.IOException;
 import java.time.Instant;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
-import org.pgpainless.PGPainless;
 
 public abstract class AbstractAutocryptUpdate {
 
@@ -30,7 +28,7 @@ public abstract class AbstractAutocryptUpdate {
         return keyData;
     }
 
-    public PGPPublicKeyRing getPublicKeyRing() throws IOException {
-        return PGPainless.readKeyRing().publicKeyRing(keyData);
+    public PGPPublicKeyRing getPublicKeyRing() {
+        return PGPPublicKeyRings.readPublicKeyRing(keyData);
     }
 }

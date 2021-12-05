@@ -9,7 +9,11 @@ public interface PeerState {
 
     Instant getAutocryptTimestamp();
 
+    Instant getGossipTimestamp();
+
     byte[] getPublicKey();
+
+    byte[] getGossipKey();
 
     EncryptionPreference getEncryptionPreference();
 }
