@@ -39,7 +39,7 @@ public class PeerStateUpdate extends AbstractAutocryptUpdate {
         private Builder(final String from, final Instant effectiveDate) {
             Preconditions.checkNotNull(from);
             Preconditions.checkNotNull(effectiveDate);
-            this.from = from;
+            this.from = Addresses.normalize(from);
             this.effectiveDate = effectiveDate;
         }
 
@@ -63,7 +63,7 @@ public class PeerStateUpdate extends AbstractAutocryptUpdate {
 
         public Builder add(final AutocryptHeader header) {
             Preconditions.checkNotNull(header);
-            if (this.from.equals(header.getAddress())) {
+            if (this.from.equals(Addresses.normalize(header.getAddress()))) {
                 this.headers.add(header);
             }
             return this;

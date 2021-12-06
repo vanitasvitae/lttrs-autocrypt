@@ -1,6 +1,5 @@
 package rs.ltt.autocrypt.client;
 
-import java.io.IOException;
 import java.time.Instant;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.junit.jupiter.api.Assertions;
@@ -61,7 +60,7 @@ public class PeerStateUpdateTest {
     }
 
     @Test
-    public void exampleHeader() throws IOException {
+    public void exampleHeader() {
         final String example =
                 "addr=alice@autocrypt.example; prefer-encrypt=mutual; keydata=\n"
                     + " mDMEXEcE6RYJKwYBBAHaRw8BAQdArjWwk3FAqyiFbFBKT4TzXcVBqPTB3gmzlC/Ub7O1u120F2F\n"
@@ -79,5 +78,27 @@ public class PeerStateUpdateTest {
         final PGPPublicKeyRing publicKeyRing = peerStateUpdate.getPublicKeyRing();
         final KeyRingInfo keyRingInfo = PGPainless.inspectKeyRing(publicKeyRing);
         Assertions.assertEquals("alice@autocrypt.example", keyRingInfo.getPrimaryUserId());
+    }
+
+    @Test
+    public void normalizationCapitalizedFrom() {
+        final PeerStateUpdate peerStateUpdate =
+                PeerStateUpdate.builder("Test@example.com", Instant.now())
+                        .add("addr=test@example.com; keydata=AAo=")
+                        .build();
+        Assertions.assertEquals("test@example.com", peerStateUpdate.getFrom());
+        Assertions.assertEquals(
+                EncryptionPreference.NO_PREFERENCE, peerStateUpdate.getEncryptionPreference());
+    }
+
+    @Test
+    public void normalizationCapitalizedAddr() {
+        final PeerStateUpdate peerStateUpdate =
+                PeerStateUpdate.builder("test@example.com", Instant.now())
+                        .add("addr=Test@example.com; keydata=AAo=")
+                        .build();
+        Assertions.assertEquals("test@example.com", peerStateUpdate.getFrom());
+        Assertions.assertEquals(
+                EncryptionPreference.NO_PREFERENCE, peerStateUpdate.getEncryptionPreference());
     }
 }

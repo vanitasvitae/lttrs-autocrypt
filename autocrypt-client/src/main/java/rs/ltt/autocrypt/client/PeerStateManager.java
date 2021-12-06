@@ -21,7 +21,7 @@ public class PeerStateManager {
             final String from,
             final Instant effectiveDate,
             final Collection<String> autocryptHeaders) {
-        if (storage.updateLastSeen(from, effectiveDate)) {
+        if (storage.updateLastSeen(Addresses.normalize(from), effectiveDate)) {
             final PeerStateUpdate peerStateUpdate;
             try {
                 peerStateUpdate =
@@ -44,7 +44,7 @@ public class PeerStateManager {
     }
 
     public Recommendation getPreliminaryRecommendation(final String address) {
-        final PeerState peerState = storage.getPeerState(address);
+        final PeerState peerState = storage.getPeerState(Addresses.normalize(address));
         if (peerState == null) {
             return Recommendation.DISABLE;
         }
