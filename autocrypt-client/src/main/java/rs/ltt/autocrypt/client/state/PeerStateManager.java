@@ -1,9 +1,11 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import rs.ltt.autocrypt.client.Addresses;
+import rs.ltt.autocrypt.client.PGPPublicKeyRings;
 import rs.ltt.autocrypt.client.storage.PeerState;
 import rs.ltt.autocrypt.client.storage.Storage;
 

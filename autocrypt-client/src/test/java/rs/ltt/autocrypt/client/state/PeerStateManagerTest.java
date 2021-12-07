@@ -1,10 +1,11 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import rs.ltt.autocrypt.client.Decision;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.PeerState;

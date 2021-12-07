@@ -1,7 +1,8 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import java.time.Instant;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import rs.ltt.autocrypt.client.PGPPublicKeyRings;
 
 public abstract class AbstractAutocryptUpdate {
 

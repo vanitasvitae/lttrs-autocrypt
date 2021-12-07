@@ -1,4 +1,4 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ArrayListMultimap;

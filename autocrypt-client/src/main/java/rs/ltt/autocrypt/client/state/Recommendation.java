@@ -1,7 +1,8 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import com.google.common.base.Preconditions;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import rs.ltt.autocrypt.client.Decision;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 
 public class Recommendation {

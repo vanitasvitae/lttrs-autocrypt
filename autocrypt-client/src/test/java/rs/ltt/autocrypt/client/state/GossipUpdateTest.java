@@ -1,4 +1,4 @@
-package rs.ltt.autocrypt.client;
+package rs.ltt.autocrypt.client.state;
 
 import java.time.Instant;
 import org.junit.jupiter.api.Assertions;
