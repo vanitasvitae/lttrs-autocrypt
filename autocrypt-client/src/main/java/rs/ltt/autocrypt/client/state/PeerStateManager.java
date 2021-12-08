@@ -45,27 +45,27 @@ public class PeerStateManager {
         }
     }
 
-    public Recommendation getPreliminaryRecommendation(final String address) {
+    public PreRecommendation getPreliminaryRecommendation(final String address) {
         final PeerState peerState = storage.getPeerState(Addresses.normalize(address));
         if (peerState == null) {
-            return Recommendation.DISABLE;
+            return PreRecommendation.DISABLE;
         }
         final PGPPublicKeyRing publicKey =
                 PGPPublicKeyRings.readPublicKeyRing(peerState.getPublicKey());
         final PGPPublicKeyRing gossipKey =
                 PGPPublicKeyRings.readPublicKeyRing(peerState.getGossipKey());
         if (publicKey == null && gossipKey == null) {
-            return Recommendation.DISABLE;
+            return PreRecommendation.DISABLE;
         }
         if (publicKey == null) {
-            return Recommendation.discourage(gossipKey);
+            return PreRecommendation.discourage(gossipKey);
         }
         final Instant lastSeen = peerState.getLastSeen();
         final Instant autocryptTimestamp = peerState.getAutocryptTimestamp();
         if (autocryptTimestamp.isAfter(lastSeen.minus(AUTOCRYPT_HEADER_EXPIRY))) {
-            return Recommendation.available(publicKey, peerState.getEncryptionPreference());
+            return PreRecommendation.available(publicKey, peerState.getEncryptionPreference());
         } else {
-            return Recommendation.discourage(publicKey);
+            return PreRecommendation.discourage(publicKey);
         }
     }
 }

@@ -40,4 +40,8 @@ public interface Storage {
     boolean updateGossip(final String address, final Instant effectiveData, final byte[] publicKey);
 
     PeerState getPeerState(final String address);
+
+    AccountState getAccountState(final String userId);
+
+    void setAccountState(final String userId, final AccountState accountState);
 }

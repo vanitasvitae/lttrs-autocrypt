@@ -1,6 +1,7 @@
 package rs.ltt.autocrypt.client;
 
 import java.io.IOException;
+import org.bouncycastle.openpgp.PGPKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.pgpainless.PGPainless;
 import org.pgpainless.algorithm.EncryptionPurpose;
@@ -29,5 +30,13 @@ public final class PGPPublicKeyRings {
         }
         final KeyRingInfo keyInfo = PGPainless.inspectKeyRing(publicKeyRing);
         return keyInfo.getEncryptionSubkeys(EncryptionPurpose.COMMUNICATIONS).size() > 0;
+    }
+
+    public static byte[] keyData(final PGPKeyRing keyRing) {
+        try {
+            return keyRing.getEncoded();
+        } catch (final IOException e) {
+            throw new IllegalArgumentException(e);
+        }
     }
 }

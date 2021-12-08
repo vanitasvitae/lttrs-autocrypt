@@ -47,6 +47,14 @@ public class InMemoryStorage implements Storage {
         return this.peers.get(address);
     }
 
+    @Override
+    public AccountState getAccountState(String userId) {
+        return null;
+    }
+
+    @Override
+    public void setAccountState(String userId, AccountState accountState) {}
+
     private static class PeerState implements rs.ltt.autocrypt.client.storage.PeerState {
         private final Instant lastSeen;
         private final Instant autocryptTimestamp;

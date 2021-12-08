@@ -6,7 +6,6 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.io.BaseEncoding;
-import java.io.IOException;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -17,6 +16,7 @@ import org.immutables.value.Value;
 import org.pgpainless.PGPainless;
 import org.pgpainless.key.info.KeyRingInfo;
 import org.pgpainless.key.util.KeyRingUtils;
+import rs.ltt.autocrypt.client.PGPPublicKeyRings;
 
 @Value.Immutable
 public abstract class AutocryptHeader {
@@ -62,17 +62,9 @@ public abstract class AutocryptHeader {
             final EncryptionPreference preference) {
         return ImmutableAutocryptHeader.builder()
                 .address(from)
-                .keyData(keyData(publicKeyRing))
+                .keyData(PGPPublicKeyRings.keyData(publicKeyRing))
                 .encryptionPreference(preference)
                 .build();
-    }
-
-    private static byte[] keyData(final PGPPublicKeyRing publicKeyRing) {
-        try {
-            return publicKeyRing.getEncoded();
-        } catch (final IOException e) {
-            throw new IllegalArgumentException(e);
-        }
     }
 
     public static AutocryptHeader of(
