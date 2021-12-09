@@ -23,4 +23,12 @@ public class Recommendation {
         return new Recommendation(
                 preRecommendation.getDecision(), preRecommendation.getPublicKey());
     }
+
+    public Decision getDecision() {
+        return decision;
+    }
+
+    public PGPPublicKeyRing getPublicKey() {
+        return publicKey;
+    }
 }

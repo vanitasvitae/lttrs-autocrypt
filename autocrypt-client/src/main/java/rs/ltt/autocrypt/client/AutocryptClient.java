@@ -5,13 +5,17 @@ import static java.util.Arrays.asList;
 import com.google.common.collect.Collections2;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.pgpainless.PGPainless;
@@ -21,9 +25,13 @@ import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
 import rs.ltt.autocrypt.client.storage.ImmutableAccountState;
+import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 
 public class AutocryptClient {
+
+    private final ListeningExecutorService ioExecutorService =
+            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
 
     private final Storage storage;
     private final PeerStateManager peerStateManager;
@@ -32,16 +40,36 @@ public class AutocryptClient {
 
     private AccountState accountState;
 
-    public AutocryptClient(final Storage storage, final String userId) {
-        this(storage, userId, DefaultSettings.DEFAULT);
+    public AutocryptClient(final String userdId) {
+        this(userdId, new InMemoryStorage());
+    }
+
+    public AutocryptClient(final String userId, final Storage storage) {
+        this(userId, storage, DefaultSettings.DEFAULT);
     }
 
     public AutocryptClient(
-            final Storage storage, final String userId, final DefaultSettings defaultSettings) {
+            final String userId, final Storage storage, final DefaultSettings defaultSettings) {
         this.storage = storage;
         this.peerStateManager = new PeerStateManager(storage);
         this.userId = userId;
         this.defaultSettings = defaultSettings;
+    }
+
+    public ListenableFuture<Void> processAutocryptHeader(
+            final String from, final Instant effectiveDate, final String autocryptHeader) {
+        return processAutocryptHeaders(from, effectiveDate, Collections.singleton(autocryptHeader));
+    }
+
+    public ListenableFuture<Void> processAutocryptHeaders(
+            final String from,
+            final Instant effectiveDate,
+            final Collection<String> autocryptHeaders) {
+        return Futures.submit(
+                () ->
+                        peerStateManager.processAutocryptHeaders(
+                                from, effectiveDate, autocryptHeaders),
+                ioExecutorService);
     }
 
     public ListenableFuture<AutocryptHeader> getAutocryptHeader() {
@@ -53,7 +81,7 @@ public class AutocryptClient {
         if (accountState != null) {
             return Futures.immediateFuture(accountState);
         }
-        return Futures.submit(this::getAccountState, MoreExecutors.directExecutor());
+        return Futures.submit(this::getAccountState, ioExecutorService);
     }
 
     private AutocryptHeader getAutocryptHeader(final AccountState accountState) {
@@ -116,8 +144,7 @@ public class AutocryptClient {
 
     private ListenableFuture<PreRecommendation> getPreliminaryRecommendation(final String address) {
         return Futures.submit(
-                () -> peerStateManager.getPreliminaryRecommendation(address),
-                MoreExecutors.directExecutor());
+                () -> peerStateManager.getPreliminaryRecommendation(address), ioExecutorService);
     }
 
     private static Recommendation getRecommendation(
