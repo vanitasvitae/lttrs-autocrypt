@@ -6,6 +6,9 @@ import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.header.EncryptionPreference;
+import rs.ltt.autocrypt.client.storage.InMemoryStorage;
+import rs.ltt.autocrypt.client.storage.Storage;
 
 public class AutocryptClientTest {
 
@@ -42,5 +45,39 @@ public class AutocryptClientTest {
         final Recommendation recommendationNobody =
                 aliceClient.getRecommendation("nobody@example.com", false).get();
         Assertions.assertEquals(Decision.DISABLE, recommendationNobody.getDecision());
+    }
+
+    @Test
+    public void aliceAndBobSetToMutual() throws ExecutionException, InterruptedException {
+        final AutocryptClient aliceClient = new AutocryptClient("alice@example.com");
+        aliceClient.setEncryptionPreference(EncryptionPreference.MUTUAL).get();
+        final AutocryptClient bobClient = new AutocryptClient("bob@example.com");
+        bobClient.setEncryptionPreference(EncryptionPreference.MUTUAL).get();
+
+        aliceClient
+                .processAutocryptHeader(
+                        "bob@example.com",
+                        Instant.now(),
+                        bobClient.getAutocryptHeader().get().toHeaderValue())
+                .get();
+
+        final Recommendation recommendation =
+                aliceClient.getRecommendation("bob@example.com", false).get();
+        Assertions.assertEquals(Decision.ENCRYPT, recommendation.getDecision());
+    }
+
+    @Test
+    public void publicKeyStaysTheSame() throws ExecutionException, InterruptedException {
+        final Storage storage = new InMemoryStorage();
+        final AutocryptClient clientOne = new AutocryptClient("test@example.com", storage);
+        final String headerOne = clientOne.getAutocryptHeader().get().toHeaderValue();
+        final String headerTwo = clientOne.getAutocryptHeader().get().toHeaderValue();
+
+        Assertions.assertEquals(headerOne, headerTwo);
+
+        final AutocryptClient clientTwo = new AutocryptClient("test@example.com", storage);
+        final String headerThree = clientTwo.getAutocryptHeader().get().toHeaderValue();
+
+        Assertions.assertEquals(headerTwo, headerThree);
     }
 }

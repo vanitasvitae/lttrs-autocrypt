@@ -7,6 +7,7 @@ import rs.ltt.autocrypt.client.header.EncryptionPreference;
 public class InMemoryStorage implements Storage {
 
     private final HashMap<String, PeerState> peers = new HashMap<>();
+    private final HashMap<String, AccountState> accounts = new HashMap<>();
 
     @Override
     public boolean updateLastSeen(final String address, final Instant effectiveDate) {
@@ -48,12 +49,14 @@ public class InMemoryStorage implements Storage {
     }
 
     @Override
-    public AccountState getAccountState(String userId) {
-        return null;
+    public AccountState getAccountState(final String userId) {
+        return this.accounts.get(userId);
     }
 
     @Override
-    public void setAccountState(String userId, AccountState accountState) {}
+    public void setAccountState(final String userId, final AccountState accountState) {
+        this.accounts.put(userId, accountState);
+    }
 
     private static class PeerState implements rs.ltt.autocrypt.client.storage.PeerState {
         private final Instant lastSeen;

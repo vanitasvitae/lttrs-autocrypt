@@ -114,10 +114,32 @@ public class AutocryptClient {
                             .encryptionPreference(defaultSettings.getEncryptionPreference())
                             .secretKey(keyData)
                             .build();
-            this.storage.setAccountState(userId, freshAccountState);
-            this.accountState = freshAccountState;
+            storeAccountState(freshAccountState);
             return freshAccountState;
         }
+    }
+
+    private void storeAccountState(final AccountState accountState) {
+        this.storage.setAccountState(userId, accountState);
+        this.accountState = accountState;
+    }
+
+    public ListenableFuture<Void> setEncryptionPreference(final EncryptionPreference preference) {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> setEncryptionPreference(accountState, preference),
+                ioExecutorService);
+    }
+
+    private Void setEncryptionPreference(
+            final AccountState accountState, final EncryptionPreference preference) {
+        final AccountState freshAccountState =
+                ImmutableAccountState.builder()
+                        .from(accountState)
+                        .encryptionPreference(preference)
+                        .build();
+        storeAccountState(freshAccountState);
+        return null;
     }
 
     public ListenableFuture<Recommendation> getRecommendation(
