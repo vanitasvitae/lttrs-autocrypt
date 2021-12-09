@@ -1,6 +1,8 @@
 package rs.ltt.autocrypt.client;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Collections2;
+import java.util.Collection;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 
@@ -22,6 +24,11 @@ public class Recommendation {
     public static Recommendation copyOf(PreRecommendation preRecommendation) {
         return new Recommendation(
                 preRecommendation.getDecision(), preRecommendation.getPublicKey());
+    }
+
+    public static Decision combine(final Collection<Recommendation> recommendations) {
+        return Decision.combine(
+                Collections2.transform(recommendations, Recommendation::getDecision));
     }
 
     public Decision getDecision() {

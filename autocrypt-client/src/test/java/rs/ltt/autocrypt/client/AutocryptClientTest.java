@@ -1,6 +1,7 @@
 package rs.ltt.autocrypt.client;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +46,28 @@ public class AutocryptClientTest {
         final Recommendation recommendationNobody =
                 aliceClient.getRecommendation("nobody@example.com", false).get();
         Assertions.assertEquals(Decision.DISABLE, recommendationNobody.getDecision());
+    }
+
+    @Test
+    public void recommendationsMultipleReceiver() throws ExecutionException, InterruptedException {
+        final AutocryptClient aliceClient = new AutocryptClient("alice@example.com");
+        final AutocryptClient bobClient = new AutocryptClient("bob@example.com");
+
+        aliceClient
+                .processAutocryptHeader(
+                        "bob@example.com",
+                        Instant.now(),
+                        bobClient.getAutocryptHeader().get().toHeaderValue())
+                .get();
+
+        final Decision decision =
+                Recommendation.combine(
+                        aliceClient
+                                .getRecommendations(
+                                        Arrays.asList("bob@example.com", "nobobody@example.com"),
+                                        false)
+                                .get());
+        Assertions.assertEquals(Decision.DISABLE, decision);
     }
 
     @Test
