@@ -3,13 +3,15 @@ package rs.ltt.autocrypt.client;
 import java.io.IOException;
 import org.bouncycastle.openpgp.PGPKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.pgpainless.PGPainless;
 import org.pgpainless.algorithm.EncryptionPurpose;
 import org.pgpainless.key.info.KeyRingInfo;
+import rs.ltt.autocrypt.client.storage.AccountState;
 
-public final class PGPPublicKeyRings {
+public final class PGPKeyRings {
 
-    private PGPPublicKeyRings() {
+    private PGPKeyRings() {
         throw new IllegalStateException("Do not instantiate me");
     }
 
@@ -21,6 +23,18 @@ public final class PGPPublicKeyRings {
             return PGPainless.readKeyRing().publicKeyRing(keyData);
         } catch (IOException e) {
             return null;
+        }
+    }
+
+    public static PGPSecretKeyRing readSecretKeyRing(final AccountState accountState) {
+        return readSecretKeyRing(accountState.getSecretKey());
+    }
+
+    public static PGPSecretKeyRing readSecretKeyRing(final byte[] keyData) {
+        try {
+            return PGPainless.readKeyRing().secretKeyRing(keyData);
+        } catch (final IOException e) {
+            throw new IllegalStateException("Retrieved invalid secret key from storage", e);
         }
     }
 

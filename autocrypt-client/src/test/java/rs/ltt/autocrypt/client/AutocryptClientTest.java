@@ -1,11 +1,23 @@
 package rs.ltt.autocrypt.client;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import com.google.common.io.ByteStreams;
+import com.google.common.io.CharSource;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.pgpainless.decryption_verification.DecryptionStream;
+import org.pgpainless.encryption_signing.EncryptionStream;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
@@ -18,10 +30,9 @@ public class AutocryptClientTest {
         final AutocryptClient autocryptClient = new AutocryptClient("test@example.com");
         final AutocryptHeader autocryptHeader = autocryptClient.getAutocryptHeader().get();
 
-        PGPPublicKeyRing publicKey =
-                PGPPublicKeyRings.readPublicKeyRing(autocryptHeader.getKeyData());
+        PGPPublicKeyRing publicKey = PGPKeyRings.readPublicKeyRing(autocryptHeader.getKeyData());
         Assertions.assertEquals("test@example.com", autocryptHeader.getAddress());
-        Assertions.assertTrue(PGPPublicKeyRings.isSuitableForEncryption(publicKey));
+        Assertions.assertTrue(PGPKeyRings.isSuitableForEncryption(publicKey));
     }
 
     @Test
@@ -102,5 +113,60 @@ public class AutocryptClientTest {
         final String headerThree = clientTwo.getAutocryptHeader().get().toHeaderValue();
 
         Assertions.assertEquals(headerTwo, headerThree);
+    }
+
+    @Test
+    public void encryptToBob() throws IOException, ExecutionException, InterruptedException {
+        final AutocryptClient aliceClient = new AutocryptClient("alice@example.com");
+        final AutocryptClient bobClient = new AutocryptClient("bob@example.com");
+
+        aliceClient
+                .processAutocryptHeader(
+                        "bob@example.com",
+                        Instant.now(),
+                        bobClient.getAutocryptHeader().get().toHeaderValue())
+                .get();
+
+        final InputStream inputStream =
+                CharSource.wrap("Hello World!").asByteSource(StandardCharsets.UTF_8).openStream();
+
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+
+        try (final EncryptionStream encryptionStream =
+                aliceClient
+                        .encrypt(byteArrayOutputStream, Collections.singleton("bob@example.com"))
+                        .get()) {
+            ByteStreams.copy(inputStream, encryptionStream);
+        }
+
+        final String encryptedMessage = byteArrayOutputStream.toString();
+
+        final InputStream encryptedInputStream =
+                CharSource.wrap(encryptedMessage).asByteSource(StandardCharsets.UTF_8).openStream();
+
+        final ByteArrayOutputStream resultStream = new ByteArrayOutputStream();
+
+        try (final DecryptionStream decryptionStream =
+                bobClient.decrypt(encryptedInputStream).get()) {
+            ByteStreams.copy(decryptionStream, resultStream);
+        }
+
+        Assertions.assertEquals("Hello World!", resultStream.toString());
+    }
+
+    @Test
+    public void encryptToUnknown() {
+        final AutocryptClient aliceClient = new AutocryptClient("alice@example.com");
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        final ExecutionException exception =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () ->
+                                aliceClient
+                                        .encrypt(
+                                                byteArrayOutputStream,
+                                                Collections.singleton("unknown@example.com"))
+                                        .get());
+        assertThat(exception.getCause(), CoreMatchers.instanceOf(IllegalArgumentException.class));
     }
 }

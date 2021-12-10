@@ -5,7 +5,7 @@ import java.time.Instant;
 import java.util.Collection;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import rs.ltt.autocrypt.client.Addresses;
-import rs.ltt.autocrypt.client.PGPPublicKeyRings;
+import rs.ltt.autocrypt.client.PGPKeyRings;
 import rs.ltt.autocrypt.client.storage.PeerState;
 import rs.ltt.autocrypt.client.storage.Storage;
 
@@ -34,8 +34,8 @@ public class PeerStateManager {
                 return;
             }
             final PGPPublicKeyRing publicKeyRing =
-                    PGPPublicKeyRings.readPublicKeyRing(peerStateUpdate.getKeyData());
-            if (PGPPublicKeyRings.isSuitableForEncryption(publicKeyRing)) {
+                    PGPKeyRings.readPublicKeyRing(peerStateUpdate.getKeyData());
+            if (PGPKeyRings.isSuitableForEncryption(publicKeyRing)) {
                 storage.updateAutocrypt(
                         peerStateUpdate.getFrom(),
                         peerStateUpdate.getEffectiveDate(),
@@ -50,10 +50,8 @@ public class PeerStateManager {
         if (peerState == null) {
             return PreRecommendation.DISABLE;
         }
-        final PGPPublicKeyRing publicKey =
-                PGPPublicKeyRings.readPublicKeyRing(peerState.getPublicKey());
-        final PGPPublicKeyRing gossipKey =
-                PGPPublicKeyRings.readPublicKeyRing(peerState.getGossipKey());
+        final PGPPublicKeyRing publicKey = PGPKeyRings.readPublicKeyRing(peerState.getPublicKey());
+        final PGPPublicKeyRing gossipKey = PGPKeyRings.readPublicKeyRing(peerState.getGossipKey());
         if (publicKey == null && gossipKey == null) {
             return PreRecommendation.DISABLE;
         }

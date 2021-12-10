@@ -2,7 +2,7 @@ package rs.ltt.autocrypt.client.state;
 
 import java.time.Instant;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
-import rs.ltt.autocrypt.client.PGPPublicKeyRings;
+import rs.ltt.autocrypt.client.PGPKeyRings;
 
 public abstract class AbstractAutocryptUpdate {
 
@@ -30,6 +30,6 @@ public abstract class AbstractAutocryptUpdate {
     }
 
     public PGPPublicKeyRing getPublicKeyRing() {
-        return PGPPublicKeyRings.readPublicKeyRing(keyData);
+        return PGPKeyRings.readPublicKeyRing(keyData);
     }
 }

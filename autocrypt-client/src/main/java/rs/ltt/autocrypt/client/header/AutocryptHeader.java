@@ -16,7 +16,7 @@ import org.immutables.value.Value;
 import org.pgpainless.PGPainless;
 import org.pgpainless.key.info.KeyRingInfo;
 import org.pgpainless.key.util.KeyRingUtils;
-import rs.ltt.autocrypt.client.PGPPublicKeyRings;
+import rs.ltt.autocrypt.client.PGPKeyRings;
 
 @Value.Immutable
 public abstract class AutocryptHeader {
@@ -62,7 +62,7 @@ public abstract class AutocryptHeader {
             final EncryptionPreference preference) {
         return ImmutableAutocryptHeader.builder()
                 .address(from)
-                .keyData(PGPPublicKeyRings.keyData(publicKeyRing))
+                .keyData(PGPKeyRings.keyData(publicKeyRing))
                 .encryptionPreference(preference)
                 .build();
     }
