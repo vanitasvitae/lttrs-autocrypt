@@ -17,7 +17,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.Executors;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
@@ -37,34 +36,27 @@ import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
 import rs.ltt.autocrypt.client.storage.ImmutableAccountState;
-import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 
-public class AutocryptClient {
+public abstract class AbstractAutocryptClient {
 
-    private final ListeningExecutorService ioExecutorService =
-            MoreExecutors.listeningDecorator(Executors.newSingleThreadExecutor());
-
+    private final String userId;
     private final Storage storage;
     private final PeerStateManager peerStateManager;
-    private final String userId;
+    private final ListeningExecutorService ioExecutorService;
     private final DefaultSettings defaultSettings;
 
     private AccountState accountState;
 
-    public AutocryptClient(final String userdId) {
-        this(userdId, new InMemoryStorage());
-    }
-
-    public AutocryptClient(final String userId, final Storage storage) {
-        this(userId, storage, DefaultSettings.DEFAULT);
-    }
-
-    public AutocryptClient(
-            final String userId, final Storage storage, final DefaultSettings defaultSettings) {
+    protected AbstractAutocryptClient(
+            final String userId,
+            final Storage storage,
+            final ListeningExecutorService ioExecutorService,
+            final DefaultSettings defaultSettings) {
         this.storage = storage;
         this.peerStateManager = new PeerStateManager(storage);
         this.userId = userId;
+        this.ioExecutorService = ioExecutorService;
         this.defaultSettings = defaultSettings;
     }
 
@@ -112,7 +104,7 @@ public class AutocryptClient {
 
     private AccountState getAccountState()
             throws PGPException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
-        synchronized (AutocryptClient.class) {
+        synchronized (AbstractAutocryptClient.class) {
             if (this.accountState != null) {
                 return this.accountState;
             }
@@ -138,6 +130,18 @@ public class AutocryptClient {
     private void storeAccountState(final AccountState accountState) {
         this.storage.setAccountState(userId, accountState);
         this.accountState = accountState;
+    }
+
+    public ListenableFuture<AutocryptHeader> getAutocryptHeader(final String from) {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> getAutocryptHeader(from, accountState),
+                MoreExecutors.directExecutor());
+    }
+
+    private AutocryptHeader getAutocryptHeader(final String from, final AccountState accountState) {
+        final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
+        return AutocryptHeader.of(from, secretKeyRing, accountState.getEncryptionPreference());
     }
 
     public ListenableFuture<DecryptionStream> decrypt(final InputStream inputStream) {
