@@ -87,8 +87,9 @@ public class AutocryptClient extends AbstractAutocryptClient {
     }
 
     public ListenableFuture<Void> processAutocryptHeader(final Email email) {
+        final List<String> autocryptHeaders = email.getAutocrypt();
         final List<EmailAddress> from = email.getFrom();
-        if (from.size() != 1) {
+        if (autocryptHeaders == null || from.size() != 1) {
             return Futures.immediateVoidFuture();
         }
         final String fromAddress = from.get(0).getEmail();
