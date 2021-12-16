@@ -1,5 +1,9 @@
 package rs.ltt.autocrypt.jmap;
 
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.startsWith;
+import static org.hamcrest.MatcherAssert.assertThat;
+
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.junit.jupiter.api.Assertions;
@@ -28,5 +32,8 @@ public class AutocryptClientTest {
         final Email result = autocryptClient.injectAutocryptHeader(email).get();
         final List<String> autocryptHeaders = result.getAutocrypt();
         Assertions.assertEquals(1, autocryptHeaders.size());
+        final String headerValue = autocryptHeaders.get(0);
+        assertThat(headerValue, startsWith("addr=alice@example.com;"));
+        assertThat(headerValue, containsString("prefer-encrypt=nopreference"));
     }
 }

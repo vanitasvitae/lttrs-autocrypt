@@ -8,6 +8,7 @@ import rs.ltt.autocrypt.client.state.PreRecommendation;
 
 public class Recommendation {
 
+    public static final Recommendation DISABLE = new Recommendation(Decision.DISABLE, null);
     private final Decision decision;
     private final PGPPublicKeyRing publicKey;
 
