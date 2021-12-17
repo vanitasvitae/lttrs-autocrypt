@@ -20,6 +20,13 @@ import java.util.concurrent.ExecutionException;
 public class AutocryptPluginTest {
 
     @Test
+    public void getAutocryptClientBeforeInstall() {
+        final AutocryptPlugin autocryptPlugin =
+                new AutocryptPlugin("test@example.com", new InMemoryStorage());
+        Assertions.assertThrows(IllegalStateException.class, autocryptPlugin::getAutocryptClient);
+    }
+
+    @Test
     public void injectAndReadBack() throws ExecutionException, InterruptedException {
         final MockWebServer server = new MockWebServer();
         final MockMailServer mailServer = new MockMailServer(2);
@@ -35,7 +42,7 @@ public class AutocryptPluginTest {
                         .username(mailServer.getUsername())
                         .password(JmapDispatcher.PASSWORD)
                         .accountId(mailServer.getAccountId())
-                        .plugin(autocryptPlugin)
+                        .plugin(AutocryptPlugin.class, autocryptPlugin)
                         .build()) {
             mua.query(EmailQuery.unfiltered(true)).get();
             final Email email =
@@ -47,7 +54,7 @@ public class AutocryptPluginTest {
             mua.draft(email).get();
             mua.refresh().get();
             final AutocryptClient autocryptClient =
-                    AutocryptClient.builder().userId(username).storage(storage).build();
+                    mua.getPlugin(AutocryptPlugin.class).getAutocryptClient();
             final Decision decision =
                     Recommendation.combine(
                             autocryptClient

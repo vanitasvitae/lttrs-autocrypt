@@ -29,7 +29,7 @@
         <dependency>
             <groupId>rs.ltt.jmap</groupId>
             <artifactId>jmap-mua</artifactId>
-            <version>0.8.0</version>
+            <version>0.8.1</version>
         </dependency>
 
         <dependency>
@@ -56,7 +56,7 @@
         <dependency>
             <groupId>rs.ltt.jmap</groupId>
             <artifactId>jmap-mock-server</artifactId>
-            <version>0.8.0</version>
+            <version>0.8.1</version>
             <scope>test</scope>
         </dependency>
 
