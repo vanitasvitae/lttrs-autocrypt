@@ -1,5 +1,7 @@
 package rs.ltt.autocrypt.jmap;
 
+import java.util.Collections;
+import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -13,9 +15,6 @@ import rs.ltt.jmap.common.entity.query.EmailQuery;
 import rs.ltt.jmap.mock.server.JmapDispatcher;
 import rs.ltt.jmap.mock.server.MockMailServer;
 import rs.ltt.jmap.mua.Mua;
-
-import java.util.Collections;
-import java.util.concurrent.ExecutionException;
 
 public class AutocryptPluginTest {
 

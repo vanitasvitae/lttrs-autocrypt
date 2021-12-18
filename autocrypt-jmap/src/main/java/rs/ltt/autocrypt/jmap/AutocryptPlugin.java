@@ -4,6 +4,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.util.Collection;
+import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.jmap.common.entity.Email;
@@ -12,9 +14,6 @@ import rs.ltt.jmap.mua.plugin.EmailCacheStagePlugin;
 import rs.ltt.jmap.mua.plugin.EventCallback;
 import rs.ltt.jmap.mua.service.MuaSession;
 import rs.ltt.jmap.mua.service.PluginService;
-
-import java.util.Collection;
-import java.util.concurrent.ExecutionException;
 
 public class AutocryptPlugin extends PluginService.Plugin {
 

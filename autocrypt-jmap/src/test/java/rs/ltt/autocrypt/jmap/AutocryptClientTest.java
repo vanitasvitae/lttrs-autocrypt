@@ -4,8 +4,19 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.google.common.io.CharSource;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import org.apache.james.mime4j.Charsets;
+import org.apache.james.mime4j.dom.BinaryBody;
+import org.apache.james.mime4j.dom.Message;
+import org.apache.james.mime4j.dom.MessageWriter;
+import org.apache.james.mime4j.message.BodyPartBuilder;
+import org.apache.james.mime4j.message.DefaultMessageWriter;
+import org.apache.james.mime4j.message.MultipartBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.jmap.common.entity.Email;
@@ -35,5 +46,44 @@ public class AutocryptClientTest {
         final String headerValue = autocryptHeaders.get(0);
         assertThat(headerValue, startsWith("addr=alice@example.com;"));
         assertThat(headerValue, containsString("prefer-encrypt=nopreference"));
+    }
+
+    @Test
+    public void encryptMimeMessage() throws IOException {
+        InputStream targetStream =
+                CharSource.wrap("Hello World").asByteSource(StandardCharsets.UTF_8).openStream();
+        final Message message =
+                Message.Builder.of()
+                        .setBody(
+                                MultipartBuilder.create("mixed")
+                                        .addBodyPart(
+                                                BodyPartBuilder.create()
+                                                        .setBody("Täst", Charsets.UTF_8)
+                                                        .setContentTransferEncoding(
+                                                                "quoted-printable"))
+                                        .addBodyPart(
+                                                BodyPartBuilder.create()
+                                                        .setBody(
+                                                                new BinaryBody() {
+                                                                    @Override
+                                                                    public InputStream
+                                                                            getInputStream()
+                                                                                    throws
+                                                                                            IOException {
+                                                                        System.out.println(
+                                                                                "Reading"
+                                                                                    + " inputstream");
+                                                                        return targetStream;
+                                                                    }
+                                                                })
+                                                        .setContentDisposition(
+                                                                "attachment", "hello.png")
+                                                        .setContentType("image/png")
+                                                        .setContentTransferEncoding("base64"))
+                                        .build())
+                        .build();
+        System.out.println("email built!");
+        MessageWriter messageWriter = new DefaultMessageWriter();
+        messageWriter.writeMessage(message, System.out);
     }
 }
