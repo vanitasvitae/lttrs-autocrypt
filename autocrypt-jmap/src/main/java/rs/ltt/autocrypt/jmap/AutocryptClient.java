@@ -8,15 +8,21 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import org.pgpainless.encryption_signing.EncryptionResult;
+import org.pgpainless.encryption_signing.EncryptionStream;
 import rs.ltt.autocrypt.client.AbstractAutocryptClient;
 import rs.ltt.autocrypt.client.DefaultSettings;
 import rs.ltt.autocrypt.client.Recommendation;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
+import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
+import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
 import rs.ltt.jmap.common.entity.IdentifiableEmailWithAddresses;
@@ -36,6 +42,20 @@ public class AutocryptClient extends AbstractAutocryptClient {
         return new Builder();
     }
 
+    public ListenableFuture<List<Recommendation>> getRecommendations(
+            final IdentifiableEmailWithAddresses email, final boolean isReplyToEncrypted) {
+        if (email.getBcc() != null && !email.getBcc().isEmpty()) {
+            return Futures.immediateFuture(ImmutableList.of(Recommendation.DISABLE));
+        }
+        return getRecommendationsForAddresses(recipients(email), isReplyToEncrypted);
+    }
+
+    public ListenableFuture<List<Recommendation>> getRecommendationsForAddresses(
+            final Collection<EmailAddress> addresses, final boolean isReplyToEncrypted) {
+        return super.getRecommendations(
+                Collections2.transform(addresses, EmailAddress::getEmail), isReplyToEncrypted);
+    }
+
     public static List<EmailAddress> recipients(final IdentifiableEmailWithAddresses email) {
         if (email.getBcc() != null && !email.getBcc().isEmpty()) {
             throw new IllegalArgumentException("Email contains Bcc recipients");
@@ -52,20 +72,6 @@ public class AutocryptClient extends AbstractAutocryptClient {
             throw new IllegalArgumentException("Some recipients do not have email addresses");
         }
         return addresses;
-    }
-
-    public ListenableFuture<List<Recommendation>> getRecommendations(
-            final IdentifiableEmailWithAddresses email, final boolean isReplyToEncrypted) {
-        if (email.getBcc() != null && !email.getBcc().isEmpty()) {
-            return Futures.immediateFuture(ImmutableList.of(Recommendation.DISABLE));
-        }
-        return getRecommendationsForAddresses(recipients(email), isReplyToEncrypted);
-    }
-
-    public ListenableFuture<List<Recommendation>> getRecommendationsForAddresses(
-            final Collection<EmailAddress> addresses, final boolean isReplyToEncrypted) {
-        return super.getRecommendations(
-                Collections2.transform(addresses, EmailAddress::getEmail), isReplyToEncrypted);
     }
 
     public ListenableFuture<Email> injectAutocryptHeader(final Email email) {
@@ -96,6 +102,29 @@ public class AutocryptClient extends AbstractAutocryptClient {
         } else {
             return email;
         }
+    }
+
+    public ListenableFuture<EncryptionResult> encrypt(
+            final Collection<EmailAddress> addresses,
+            final Collection<BodyPartTuple> bodyParts,
+            final OutputStream outputStream) {
+        final Collection<String> recipients =
+                Collections2.transform(addresses, EmailAddress::getEmail);
+        final ListenableFuture<EncryptionStream> encryptionStreamFuture =
+                encrypt(recipients, outputStream);
+        return Futures.transformAsync(
+                encryptionStreamFuture,
+                encryptionStream -> writeMimeMessage(bodyParts, encryptionStream),
+                MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<EncryptionResult> writeMimeMessage(
+            final Collection<BodyPartTuple> bodyParts, final EncryptionStream encryptionStream)
+            throws IOException {
+        MimeTransformer.transform(bodyParts, encryptionStream);
+        encryptionStream.flush();
+        encryptionStream.close();
+        return Futures.immediateFuture(encryptionStream.getResult());
     }
 
     public ListenableFuture<Void> processAutocryptHeader(final Email email) {

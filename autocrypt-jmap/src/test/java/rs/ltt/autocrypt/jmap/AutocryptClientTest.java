@@ -1,28 +1,26 @@
 package rs.ltt.autocrypt.jmap;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.hamcrest.CoreMatchers.startsWith;
+import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.google.common.io.CharSource;
-import java.io.IOException;
-import java.io.InputStream;
+import com.google.common.collect.ImmutableList;
+import com.google.common.net.MediaType;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import org.apache.james.mime4j.Charsets;
-import org.apache.james.mime4j.dom.BinaryBody;
-import org.apache.james.mime4j.dom.Message;
-import org.apache.james.mime4j.dom.MessageWriter;
-import org.apache.james.mime4j.message.BodyPartBuilder;
-import org.apache.james.mime4j.message.DefaultMessageWriter;
-import org.apache.james.mime4j.message.MultipartBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.pgpainless.PGPainless;
+import org.pgpainless.encryption_signing.EncryptionResult;
 import rs.ltt.autocrypt.client.DefaultSettings;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
+import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
+import rs.ltt.jmap.common.entity.EmailBodyPart;
 
 public class AutocryptClientTest {
 
@@ -120,41 +118,43 @@ public class AutocryptClientTest {
     }
 
     @Test
-    public void encryptMimeMessage() throws IOException {
-        InputStream targetStream =
-                CharSource.wrap("Hello World").asByteSource(StandardCharsets.UTF_8).openStream();
-        final Message message =
-                Message.Builder.of()
-                        .setBody(
-                                MultipartBuilder.create("mixed")
-                                        .addBodyPart(
-                                                BodyPartBuilder.create()
-                                                        .setBody("Täst", Charsets.UTF_8)
-                                                        .setContentTransferEncoding(
-                                                                "quoted-printable"))
-                                        .addBodyPart(
-                                                BodyPartBuilder.create()
-                                                        .setBody(
-                                                                new BinaryBody() {
-                                                                    @Override
-                                                                    public InputStream
-                                                                            getInputStream()
-                                                                                    throws
-                                                                                            IOException {
-                                                                        System.out.println(
-                                                                                "Reading"
-                                                                                    + " inputstream");
-                                                                        return targetStream;
-                                                                    }
-                                                                })
-                                                        .setContentDisposition(
-                                                                "attachment", "hello.png")
-                                                        .setContentType("image/png")
-                                                        .setContentTransferEncoding("base64"))
-                                        .build())
-                        .build();
-        System.out.println("email built!");
-        MessageWriter messageWriter = new DefaultMessageWriter();
-        messageWriter.writeMessage(message, System.out);
+    public void encryptBodyParts() throws ExecutionException, InterruptedException {
+
+        final FixedKeyStorage storage =
+                new FixedKeyStorage(
+                        FixedKeyStorage.SECRET_KEY_ALICE,
+                        Collections.singleton(
+                                PGPainless.extractCertificate(FixedKeyStorage.SECRET_KEY_BOB)));
+
+        final AutocryptClient autocryptClient =
+                AutocryptClient.builder().userId("alice@example.com").storage(storage).build();
+
+        final ByteArrayOutputStream resultOutputStream = new ByteArrayOutputStream();
+        final BodyPartTuple textBody =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).build(),
+                        "Hello World! Schöne Grüße");
+        final BodyPartTuple attachment =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder()
+                                .mediaType(MediaType.PNG)
+                                .name("blacksquare.png")
+                                .disposition("attachment")
+                                .build(),
+                        new ByteArrayInputStream(MimeTransformerTest.BLACK_SQUARE_PNG));
+
+        final List<EmailAddress> recipients =
+                ImmutableList.of(EmailAddress.builder().email("bob@example.com").build());
+        final List<BodyPartTuple> bodyParts = ImmutableList.of(textBody, attachment);
+
+        final EncryptionResult result =
+                autocryptClient.encrypt(recipients, bodyParts, resultOutputStream).get();
+
+        Assertions.assertEquals(2, result.getRecipients().size());
+
+        final String message = new String(resultOutputStream.toByteArray(), StandardCharsets.UTF_8);
+
+        assertThat(message, startsWith("-----BEGIN PGP MESSAGE-----"));
+        assertThat(message.trim(), endsWith("-----END PGP MESSAGE-----"));
     }
 }

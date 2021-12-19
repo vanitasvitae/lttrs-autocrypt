@@ -185,7 +185,7 @@ public class SimpleAutocryptClientTest {
 
         try (final EncryptionStream encryptionStream =
                 aliceClient
-                        .encrypt(byteArrayOutputStream, Collections.singleton("bob@example.com"))
+                        .encrypt(Collections.singleton("bob@example.com"), byteArrayOutputStream)
                         .get()) {
             ByteStreams.copy(inputStream, encryptionStream);
         }
@@ -216,8 +216,8 @@ public class SimpleAutocryptClientTest {
                         () ->
                                 aliceClient
                                         .encrypt(
-                                                byteArrayOutputStream,
-                                                Collections.singleton("unknown@example.com"))
+                                                Collections.singleton("unknown@example.com"),
+                                                byteArrayOutputStream)
                                         .get());
         assertThat(exception.getCause(), CoreMatchers.instanceOf(IllegalArgumentException.class));
     }

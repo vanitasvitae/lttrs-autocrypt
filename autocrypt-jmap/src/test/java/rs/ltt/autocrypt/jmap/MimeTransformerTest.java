@@ -19,7 +19,7 @@ import rs.ltt.jmap.common.entity.EmailBodyPart;
 
 public class MimeTransformerTest {
 
-    private static final byte[] BLACK_SQUARE_PNG =
+    public static final byte[] BLACK_SQUARE_PNG =
             BaseEncoding.base64()
                     .decode(
                             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAC4jAAAuIwF4pT92AAAADElEQVQI12NgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC");

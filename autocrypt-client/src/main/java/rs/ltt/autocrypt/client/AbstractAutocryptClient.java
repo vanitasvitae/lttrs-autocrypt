@@ -167,16 +167,16 @@ public abstract class AbstractAutocryptClient {
     }
 
     public ListenableFuture<EncryptionStream> encrypt(
-            final OutputStream outputStream, final Collection<String> recipients) {
+            final Collection<String> recipients, final OutputStream outputStream) {
         return Futures.transformAsync(
                 getAccountStateFuture(),
-                accountState -> encrypt(outputStream, recipients, accountState),
+                accountState -> encrypt(recipients, outputStream, accountState),
                 MoreExecutors.directExecutor());
     }
 
     private ListenableFuture<EncryptionStream> encrypt(
-            final OutputStream outputStream,
             final Collection<String> recipients,
+            final OutputStream outputStream,
             final AccountState accountState) {
         return Futures.transform(
                 getRecommendations(recipients),
@@ -198,7 +198,9 @@ public abstract class AbstractAutocryptClient {
             final AccountState accountState) {
         final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
         final EncryptionOptions encryptionOptions =
-                new EncryptionOptions().addRecipients(of(recipients));
+                new EncryptionOptions()
+                        .addRecipients(of(recipients))
+                        .addRecipient(PGPainless.extractCertificate(secretKeyRing));
         final SigningOptions signingOptions;
         try {
             signingOptions =
