@@ -61,6 +61,17 @@ public class AutocryptPluginTest {
                                             Collections.singleton(self), false)
                                     .get());
             Assertions.assertEquals(Decision.AVAILABLE, decision);
+
+            final Email wrapper = Email.builder().to(self).build();
+            final Decision decisionDerivedByWrapper =
+                    Recommendation.combine(autocryptClient.getRecommendations(wrapper, true).get());
+            Assertions.assertEquals(Decision.ENCRYPT, decisionDerivedByWrapper);
+
+            final Email wrapperBcc = Email.builder().bcc(self).build();
+            final Decision decisionDerivedByWrapperBcc =
+                    Recommendation.combine(
+                            autocryptClient.getRecommendations(wrapperBcc, false).get());
+            Assertions.assertEquals(Decision.DISABLE, decisionDerivedByWrapperBcc);
         }
     }
 }

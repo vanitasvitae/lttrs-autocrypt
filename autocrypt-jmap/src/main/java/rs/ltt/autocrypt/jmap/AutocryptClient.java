@@ -3,6 +3,7 @@ package rs.ltt.autocrypt.jmap;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -35,10 +36,9 @@ public class AutocryptClient extends AbstractAutocryptClient {
         return new Builder();
     }
 
-    public ListenableFuture<List<Recommendation>> getRecommendations(
-            final IdentifiableEmailWithAddresses email, final boolean isReplyToEncrypted) {
+    public static List<EmailAddress> recipients(final IdentifiableEmailWithAddresses email) {
         if (email.getBcc() != null && !email.getBcc().isEmpty()) {
-            return Futures.immediateFuture(ImmutableList.of(Recommendation.DISABLE));
+            throw new IllegalArgumentException("Email contains Bcc recipients");
         }
         final ImmutableList.Builder<EmailAddress> addressBuilder = new ImmutableList.Builder<>();
         if (email.getTo() != null) {
@@ -47,7 +47,19 @@ public class AutocryptClient extends AbstractAutocryptClient {
         if (email.getCc() != null) {
             addressBuilder.addAll(email.getCc());
         }
-        return getRecommendationsForAddresses(addressBuilder.build(), isReplyToEncrypted);
+        final List<EmailAddress> addresses = addressBuilder.build();
+        if (Iterables.any(addresses, a -> a == null || a.getEmail() == null)) {
+            throw new IllegalArgumentException("Some recipients do not have email addresses");
+        }
+        return addresses;
+    }
+
+    public ListenableFuture<List<Recommendation>> getRecommendations(
+            final IdentifiableEmailWithAddresses email, final boolean isReplyToEncrypted) {
+        if (email.getBcc() != null && !email.getBcc().isEmpty()) {
+            return Futures.immediateFuture(ImmutableList.of(Recommendation.DISABLE));
+        }
+        return getRecommendationsForAddresses(recipients(email), isReplyToEncrypted);
     }
 
     public ListenableFuture<List<Recommendation>> getRecommendationsForAddresses(

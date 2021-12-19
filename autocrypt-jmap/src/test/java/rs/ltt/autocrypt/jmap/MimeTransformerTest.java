@@ -10,6 +10,8 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
@@ -21,6 +23,15 @@ public class MimeTransformerTest {
             BaseEncoding.base64()
                     .decode(
                             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAACXBIWXMAAC4jAAAuIwF4pT92AAAADElEQVQI12NgYGAAAAAEAAEnNCcKAAAAAElFTkSuQmCC");
+
+    @Test
+    public void emptyBodyParts() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    MimeTransformer.transform(Collections.emptyList());
+                });
+    }
 
     @Test
     public void simpleText() throws IOException {
