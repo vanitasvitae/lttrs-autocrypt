@@ -19,6 +19,8 @@ import org.apache.james.mime4j.message.DefaultMessageWriter;
 import org.apache.james.mime4j.message.MultipartBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import rs.ltt.autocrypt.client.DefaultSettings;
+import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
 
@@ -99,7 +101,10 @@ public class AutocryptClientTest {
     @Test
     public void injectIntoEmail() throws ExecutionException, InterruptedException {
         final AutocryptClient autocryptClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
+                AutocryptClient.builder()
+                        .userId("alice@example.com")
+                        .defaultSettings(new DefaultSettings(true, EncryptionPreference.MUTUAL))
+                        .build();
         final Email email =
                 Email.builder()
                         .subject("This is a Test")
@@ -111,7 +116,7 @@ public class AutocryptClientTest {
         Assertions.assertEquals(1, autocryptHeaders.size());
         final String headerValue = autocryptHeaders.get(0);
         assertThat(headerValue, startsWith("addr=alice@example.com;"));
-        assertThat(headerValue, containsString("prefer-encrypt=nopreference"));
+        assertThat(headerValue, containsString("prefer-encrypt=mutual"));
     }
 
     @Test

@@ -1,16 +1,14 @@
-package rs.ltt.autocrypt;
+package rs.ltt.autocrypt.client;
 
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import rs.ltt.autocrypt.client.AbstractAutocryptClient;
-import rs.ltt.autocrypt.client.DefaultSettings;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 
-public class AutocryptClient extends AbstractAutocryptClient {
+public class SimpleAutocryptClient extends AbstractAutocryptClient {
 
-    private AutocryptClient(
+    private SimpleAutocryptClient(
             String userId,
             Storage storage,
             ListeningExecutorService ioExecutorService,
@@ -57,9 +55,9 @@ public class AutocryptClient extends AbstractAutocryptClient {
             return this;
         }
 
-        public AutocryptClient build() {
+        public SimpleAutocryptClient build() {
             Preconditions.checkState(this.userId != null, "UserId must not be null");
-            return new AutocryptClient(
+            return new SimpleAutocryptClient(
                     this.userId, this.storage, this.ioExecutorService, this.defaultSettings);
         }
     }

@@ -18,18 +18,50 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.pgpainless.decryption_verification.DecryptionStream;
 import org.pgpainless.encryption_signing.EncryptionStream;
-import rs.ltt.autocrypt.AutocryptClient;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 
-public class AutocryptClientTest {
+public class SimpleAutocryptClientTest {
+
+    @Test
+    public void nullExecutor() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SimpleAutocryptClient.builder()
+                                .userId("foo@example.com")
+                                .ioExecutorService(null)
+                                .build());
+    }
+
+    @Test
+    public void nullStorage() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SimpleAutocryptClient.builder()
+                                .userId("foo@example.com")
+                                .storage(null)
+                                .build());
+    }
+
+    @Test
+    public void nullDefaultSettings() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        SimpleAutocryptClient.builder()
+                                .userId("foo@example.com")
+                                .defaultSettings(null)
+                                .build());
+    }
 
     @Test
     public void automaticSecretKeyGeneration() throws ExecutionException, InterruptedException {
-        final AutocryptClient autocryptClient =
-                AutocryptClient.builder().userId("test@example.com").build();
+        final SimpleAutocryptClient autocryptClient =
+                SimpleAutocryptClient.builder().userId("test@example.com").build();
         final AutocryptHeader autocryptHeader = autocryptClient.getAutocryptHeader().get();
 
         PGPPublicKeyRing publicKey = PGPKeyRings.readPublicKeyRing(autocryptHeader.getKeyData());
@@ -39,10 +71,10 @@ public class AutocryptClientTest {
 
     @Test
     public void aliceAndBobDefaultRecommendation() throws ExecutionException, InterruptedException {
-        final AutocryptClient aliceClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
-        final AutocryptClient bobClient =
-                AutocryptClient.builder().userId("bob@example.com").build();
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder().userId("alice@example.com").build();
+        final SimpleAutocryptClient bobClient =
+                SimpleAutocryptClient.builder().userId("bob@example.com").build();
 
         aliceClient
                 .processAutocryptHeader(
@@ -65,10 +97,10 @@ public class AutocryptClientTest {
 
     @Test
     public void recommendationsMultipleReceiver() throws ExecutionException, InterruptedException {
-        final AutocryptClient aliceClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
-        final AutocryptClient bobClient =
-                AutocryptClient.builder().userId("bob@example.com").build();
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder().userId("alice@example.com").build();
+        final SimpleAutocryptClient bobClient =
+                SimpleAutocryptClient.builder().userId("bob@example.com").build();
 
         aliceClient
                 .processAutocryptHeader(
@@ -89,12 +121,12 @@ public class AutocryptClientTest {
 
     @Test
     public void aliceAndBobSetToMutual() throws ExecutionException, InterruptedException {
-        final AutocryptClient aliceClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder().userId("alice@example.com").build();
         aliceClient.setEncryptionPreference(EncryptionPreference.MUTUAL).get();
 
-        final AutocryptClient bobClient =
-                AutocryptClient.builder().userId("bob@example.com").build();
+        final SimpleAutocryptClient bobClient =
+                SimpleAutocryptClient.builder().userId("bob@example.com").build();
         bobClient.setEncryptionPreference(EncryptionPreference.MUTUAL).get();
 
         aliceClient
@@ -112,15 +144,21 @@ public class AutocryptClientTest {
     @Test
     public void publicKeyStaysTheSame() throws ExecutionException, InterruptedException {
         final Storage storage = new InMemoryStorage();
-        final AutocryptClient clientOne =
-                AutocryptClient.builder().userId("alice@example.com").storage(storage).build();
+        final SimpleAutocryptClient clientOne =
+                SimpleAutocryptClient.builder()
+                        .userId("alice@example.com")
+                        .storage(storage)
+                        .build();
         final String headerOne = clientOne.getAutocryptHeader().get().toHeaderValue();
         final String headerTwo = clientOne.getAutocryptHeader().get().toHeaderValue();
 
         Assertions.assertEquals(headerOne, headerTwo);
 
-        final AutocryptClient clientTwo =
-                AutocryptClient.builder().userId("alice@example.com").storage(storage).build();
+        final SimpleAutocryptClient clientTwo =
+                SimpleAutocryptClient.builder()
+                        .userId("alice@example.com")
+                        .storage(storage)
+                        .build();
         final String headerThree = clientTwo.getAutocryptHeader().get().toHeaderValue();
 
         Assertions.assertEquals(headerTwo, headerThree);
@@ -128,10 +166,10 @@ public class AutocryptClientTest {
 
     @Test
     public void encryptToBob() throws IOException, ExecutionException, InterruptedException {
-        final AutocryptClient aliceClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
-        final AutocryptClient bobClient =
-                AutocryptClient.builder().userId("bob@example.com").build();
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder().userId("alice@example.com").build();
+        final SimpleAutocryptClient bobClient =
+                SimpleAutocryptClient.builder().userId("bob@example.com").build();
 
         aliceClient
                 .processAutocryptHeader(
@@ -169,8 +207,8 @@ public class AutocryptClientTest {
 
     @Test
     public void encryptToUnknown() {
-        final AutocryptClient aliceClient =
-                AutocryptClient.builder().userId("alice@example.com").build();
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder().userId("alice@example.com").build();
         final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         final ExecutionException exception =
                 Assertions.assertThrows(
