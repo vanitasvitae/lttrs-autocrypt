@@ -2,16 +2,26 @@ package rs.ltt.autocrypt.jmap;
 
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.net.MediaType;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.pgpainless.encryption_signing.EncryptionResult;
 import rs.ltt.autocrypt.client.storage.Storage;
+import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
+import rs.ltt.jmap.client.blob.OutputStreamUpload;
+import rs.ltt.jmap.client.blob.Progress;
 import rs.ltt.jmap.common.entity.Email;
+import rs.ltt.jmap.common.entity.EmailAddress;
+import rs.ltt.jmap.common.entity.Upload;
 import rs.ltt.jmap.mua.plugin.EmailBuildStagePlugin;
 import rs.ltt.jmap.mua.plugin.EmailCacheStagePlugin;
 import rs.ltt.jmap.mua.plugin.EventCallback;
+import rs.ltt.jmap.mua.service.BinaryService;
 import rs.ltt.jmap.mua.service.MuaSession;
 import rs.ltt.jmap.mua.service.PluginService;
 
@@ -27,6 +37,34 @@ public class AutocryptPlugin extends PluginService.Plugin {
     public AutocryptPlugin(final String userId, final Storage storage) {
         this.userId = userId;
         this.storage = storage;
+    }
+
+    public ListenableFuture<Upload> encrypt(
+            final Collection<EmailAddress> addresses,
+            final Collection<BodyPartTuple> bodyParts,
+            final Progress progress) {
+        final OutputStreamUpload outputStreamUpload = OutputStreamUpload.of(MediaType.OCTET_STREAM);
+        final ListenableFuture<Upload> uploadFuture =
+                getService(BinaryService.class).upload(outputStreamUpload, progress);
+        final ListenableFuture<EncryptionResult> encryptionResultFuture;
+        try {
+            encryptionResultFuture =
+                    getAutocryptClient()
+                            .encrypt(addresses, bodyParts, outputStreamUpload.getOutputStream());
+        } catch (final IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        return Futures.transformAsync(
+                uploadFuture,
+                upload -> {
+                    return Futures.transform(
+                            encryptionResultFuture,
+                            encryptionResult -> {
+                                return upload;
+                            },
+                            MoreExecutors.directExecutor());
+                },
+                MoreExecutors.directExecutor());
     }
 
     @Override
