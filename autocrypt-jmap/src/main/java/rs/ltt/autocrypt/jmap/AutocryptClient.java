@@ -4,6 +4,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.io.Closeables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -13,6 +14,7 @@ import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.Executors;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.pgpainless.encryption_signing.EncryptionStream;
 import rs.ltt.autocrypt.client.AbstractAutocryptClient;
@@ -29,6 +31,9 @@ import rs.ltt.jmap.common.entity.IdentifiableEmailWithAddresses;
 import rs.ltt.jmap.mua.util.EmailUtil;
 
 public class AutocryptClient extends AbstractAutocryptClient {
+
+    private static final ListeningExecutorService CRYPTO_EXECUTOR =
+            MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
     protected AutocryptClient(
             String userId,
@@ -114,17 +119,23 @@ public class AutocryptClient extends AbstractAutocryptClient {
                 encrypt(recipients, outputStream);
         return Futures.transformAsync(
                 encryptionStreamFuture,
-                encryptionStream -> writeMimeMessage(bodyParts, encryptionStream),
-                MoreExecutors.directExecutor());
+                encryptionStream -> {
+                    final EncryptionResult encryptionResult =
+                            writeMimeMessage(bodyParts, encryptionStream);
+                    // unfortunately EncryptionStream doesn't close the underlying stream
+                    Closeables.close(outputStream, true);
+                    return Futures.immediateFuture(encryptionResult);
+                },
+                CRYPTO_EXECUTOR);
     }
 
-    private ListenableFuture<EncryptionResult> writeMimeMessage(
+    private EncryptionResult writeMimeMessage(
             final Collection<BodyPartTuple> bodyParts, final EncryptionStream encryptionStream)
             throws IOException {
         MimeTransformer.transform(bodyParts, encryptionStream);
         encryptionStream.flush();
         encryptionStream.close();
-        return Futures.immediateFuture(encryptionStream.getResult());
+        return encryptionStream.getResult();
     }
 
     public ListenableFuture<Void> processAutocryptHeader(final Email email) {

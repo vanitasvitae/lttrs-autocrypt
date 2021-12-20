@@ -1,20 +1,31 @@
 package rs.ltt.autocrypt.jmap;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.net.MediaType;
+import java.io.ByteArrayInputStream;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.pgpainless.PGPainless;
 import rs.ltt.autocrypt.client.Decision;
 import rs.ltt.autocrypt.client.Recommendation;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
+import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
+import rs.ltt.jmap.common.entity.EmailBodyPart;
+import rs.ltt.jmap.common.entity.Upload;
 import rs.ltt.jmap.common.entity.query.EmailQuery;
 import rs.ltt.jmap.mock.server.JmapDispatcher;
 import rs.ltt.jmap.mock.server.MockMailServer;
 import rs.ltt.jmap.mua.Mua;
+import rs.ltt.jmap.mua.cache.InMemoryCache;
 
 public class AutocryptPluginTest {
 
@@ -73,5 +84,55 @@ public class AutocryptPluginTest {
                             autocryptClient.getRecommendations(wrapperBcc, false).get());
             Assertions.assertEquals(Decision.DISABLE, decisionDerivedByWrapperBcc);
         }
+    }
+
+    @Test
+    public void encryptAndUpload()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        final FixedKeyStorage storage =
+                new FixedKeyStorage(
+                        FixedKeyStorage.SECRET_KEY_ALICE,
+                        Collections.singleton(
+                                PGPainless.extractCertificate(FixedKeyStorage.SECRET_KEY_BOB)));
+
+        final MockWebServer server = new MockWebServer();
+        final MockMailServer mailServer = new MockMailServer(2);
+        server.setDispatcher(mailServer);
+
+        final Mua mua =
+                Mua.builder()
+                        .cache(new InMemoryCache())
+                        .sessionResource(server.url(JmapDispatcher.WELL_KNOWN_PATH))
+                        .username(mailServer.getUsername())
+                        .password(JmapDispatcher.PASSWORD)
+                        .accountId(mailServer.getAccountId())
+                        .plugin(
+                                AutocryptPlugin.class,
+                                new AutocryptPlugin(mailServer.getUsername(), storage))
+                        .build();
+
+        final BodyPartTuple textBody =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).build(),
+                        "Hello World! Schöne Grüße");
+        final BodyPartTuple attachment =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder()
+                                .mediaType(MediaType.PNG)
+                                .name("blacksquare.png")
+                                .disposition("attachment")
+                                .build(),
+                        new ByteArrayInputStream(MimeTransformerTest.BLACK_SQUARE_PNG));
+
+        final List<EmailAddress> recipients =
+                ImmutableList.of(EmailAddress.builder().email("bob@example.com").build());
+        final List<BodyPartTuple> bodyParts = ImmutableList.of(textBody, attachment);
+
+        final Upload upload =
+                mua.getPlugin(AutocryptPlugin.class)
+                        .encryptAndUpload(recipients, bodyParts, null)
+                        .get(30, TimeUnit.SECONDS);
+
+        Assertions.assertTrue(upload.getSize() > 1000);
     }
 }

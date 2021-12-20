@@ -1,12 +1,11 @@
 package rs.ltt.autocrypt.jmap;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.MediaType;
+import java.util.List;
 import java.util.Map;
-import rs.ltt.jmap.common.entity.Email;
-import rs.ltt.jmap.common.entity.EmailBodyPart;
-import rs.ltt.jmap.common.entity.EmailBodyValue;
-import rs.ltt.jmap.common.entity.Upload;
+import rs.ltt.jmap.common.entity.*;
 
 @SuppressWarnings("UnstableApiUsage")
 public class EncryptedBodyPart {
@@ -23,11 +22,11 @@ public class EncryptedBodyPart {
     private static final String FILENAME = "encrypted.asc";
 
     public static Email.EmailBuilder insertEncryptedBlob(
-            final Email.EmailBuilder emailBuilder, final Upload upload) {
-        return emailBuilder.bodyStructure(of(upload)).bodyValues(BODY_VALUES);
+            final Email.EmailBuilder emailBuilder, final BinaryData binaryData) {
+        return emailBuilder.bodyStructure(of(binaryData)).bodyValues(BODY_VALUES);
     }
 
-    public static EmailBodyPart of(final Upload upload) {
+    public static EmailBodyPart of(final BinaryData binaryData) {
         final EmailBodyPart versionBodyPart =
                 EmailBodyPart.builder()
                         .partId(VERSION_BODY_PART_ID)
@@ -35,7 +34,7 @@ public class EncryptedBodyPart {
                         .build();
         final EmailBodyPart encryptedBodyPart =
                 EmailBodyPart.builder()
-                        .blobId(upload.getBlobId())
+                        .blobId(binaryData.getBlobId())
                         .disposition("inline")
                         .name(FILENAME)
                         .mediaType(MediaType.OCTET_STREAM)
@@ -45,5 +44,28 @@ public class EncryptedBodyPart {
                 .subPart(versionBodyPart)
                 .subPart(encryptedBodyPart)
                 .build();
+    }
+
+    public static Optional<Downloadable> findEncryptedBodyPart(final Email email) {
+        final EmailBodyPart bodyStructure = email.getBodyStructure();
+        if (bodyStructure == null) {
+            throw new IllegalArgumentException(
+                    "Email did not contain BodyStructure. This needs to be requested explicitly");
+        }
+        if (bodyStructure.getMediaType().is(MULTIPART_ENCRYPTED)) {
+            final List<EmailBodyPart> subParts = bodyStructure.getSubParts();
+            if (subParts == null || subParts.size() != 2) {
+                return Optional.absent();
+            }
+            final MediaType firstMediaType = subParts.get(0).getMediaType();
+            final MediaType secondMediaType = subParts.get(1).getMediaType();
+            if (firstMediaType != null
+                    && firstMediaType.is(APPLICATION_PGP_ENCRYPTED)
+                    && secondMediaType != null
+                    && secondMediaType.is(MediaType.OCTET_STREAM)) {
+                return Optional.of(subParts.get(1));
+            }
+        }
+        return Optional.absent();
     }
 }

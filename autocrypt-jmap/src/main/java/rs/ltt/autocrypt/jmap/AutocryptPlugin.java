@@ -1,5 +1,6 @@
 package rs.ltt.autocrypt.jmap;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.net.MediaType;
@@ -11,6 +12,8 @@ import java.util.Collection;
 import java.util.concurrent.ExecutionException;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.pgpainless.encryption_signing.EncryptionResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.jmap.client.blob.OutputStreamUpload;
@@ -27,6 +30,8 @@ import rs.ltt.jmap.mua.service.PluginService;
 
 public class AutocryptPlugin extends PluginService.Plugin {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(AutocryptPlugin.class);
+
     private final String userId;
     private final Storage storage;
 
@@ -39,7 +44,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
         this.storage = storage;
     }
 
-    public ListenableFuture<Upload> encrypt(
+    public ListenableFuture<Upload> encryptAndUpload(
             final Collection<EmailAddress> addresses,
             final Collection<BodyPartTuple> bodyParts,
             final Progress progress) {
@@ -56,15 +61,30 @@ public class AutocryptPlugin extends PluginService.Plugin {
         }
         return Futures.transformAsync(
                 uploadFuture,
-                upload -> {
-                    return Futures.transform(
-                            encryptionResultFuture,
-                            encryptionResult -> {
-                                return upload;
-                            },
-                            MoreExecutors.directExecutor());
-                },
+                upload ->
+                        Futures.transform(
+                                encryptionResultFuture,
+                                encryptionResult -> {
+                                    Preconditions.checkState(
+                                            encryptionResult != null,
+                                            "Encryption result was unexpectedly null");
+                                    LOGGER.info(
+                                            "Encrypted to {} recipients with {} and {} compression",
+                                            encryptionResult.getRecipients().size(),
+                                            encryptionResult.getEncryptionAlgorithm(),
+                                            encryptionResult.getCompressionAlgorithm());
+                                    return upload;
+                                },
+                                MoreExecutors.directExecutor()),
                 MoreExecutors.directExecutor());
+    }
+
+    public AutocryptClient getAutocryptClient() {
+        final AutocryptClient autocryptClient = this.autocryptClient;
+        if (autocryptClient == null) {
+            throw new IllegalStateException("Plugin has not been installed yet");
+        }
+        return autocryptClient;
     }
 
     @Override
@@ -82,14 +102,6 @@ public class AutocryptPlugin extends PluginService.Plugin {
     @NonNull
     private ListenableFuture<Email> onBuildEmail(final Email email) {
         return getAutocryptClient().injectAutocryptHeader(email);
-    }
-
-    public AutocryptClient getAutocryptClient() {
-        final AutocryptClient autocryptClient = this.autocryptClient;
-        if (autocryptClient == null) {
-            throw new IllegalStateException("Plugin has not been installed yet");
-        }
-        return autocryptClient;
     }
 
     private void onCacheEmail(final Email email) {
