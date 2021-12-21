@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Objects;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
-import org.bouncycastle.openpgp.PGPPublicKeyRingCollection;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.pgpainless.PGPainless;
 import org.pgpainless.algorithm.DocumentSignatureType;
@@ -58,15 +57,6 @@ public abstract class AbstractAutocryptClient {
         this.userId = userId;
         this.ioExecutorService = ioExecutorService;
         this.defaultSettings = defaultSettings;
-    }
-
-    // TODO this can be removed once PGPainless can take iterable<>
-    private static PGPPublicKeyRingCollection of(final Collection<PGPPublicKeyRing> keyRings) {
-        try {
-            return new PGPPublicKeyRingCollection(keyRings);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
     }
 
     public ListenableFuture<Void> processAutocryptHeader(
@@ -199,7 +189,7 @@ public abstract class AbstractAutocryptClient {
         final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
         final EncryptionOptions encryptionOptions =
                 new EncryptionOptions()
-                        .addRecipients(of(recipients))
+                        .addRecipients(recipients)
                         .addRecipient(PGPainless.extractCertificate(secretKeyRing));
         final SigningOptions signingOptions;
         try {

@@ -22,8 +22,8 @@ public interface Storage {
     /**
      * Steps 4-6 of the update process. 4) Set peers[from-addr].autocrypt_timestamp to the message’s
      * effective date. 5) Set peers[from-addr].public_key to the corresponding keydata value of the
-     * Autocrypt header. 6) Set peers[from-addr].autocrypt_timestamp to the message’s effective
-     * date.
+     * Autocrypt header. 6) Set peers[from-addr].prefer_encrypt to the corresponding prefer-encrypt
+     * value of the Autocrypt header.
      *
      * @param address The peer’s from address
      * @param effectiveDate The effective date of the message (sending time or the time of receipt
