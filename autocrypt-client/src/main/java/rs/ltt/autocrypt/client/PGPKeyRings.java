@@ -7,9 +7,13 @@ import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.pgpainless.PGPainless;
 import org.pgpainless.algorithm.EncryptionPurpose;
 import org.pgpainless.key.info.KeyRingInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.storage.AccountState;
 
 public final class PGPKeyRings {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PGPKeyRings.class);
 
     private PGPKeyRings() {
         throw new IllegalStateException("Do not instantiate me");
@@ -42,8 +46,13 @@ public final class PGPKeyRings {
         if (publicKeyRing == null) {
             return false;
         }
-        final KeyRingInfo keyInfo = PGPainless.inspectKeyRing(publicKeyRing);
-        return keyInfo.getEncryptionSubkeys(EncryptionPurpose.COMMUNICATIONS).size() > 0;
+        try {
+            final KeyRingInfo keyInfo = PGPainless.inspectKeyRing(publicKeyRing);
+            return keyInfo.getEncryptionSubkeys(EncryptionPurpose.COMMUNICATIONS).size() > 0;
+        } catch (final Exception e) {
+            LOGGER.info("cannot determine if PublicKeyRing is suitable for encryption", e);
+            return false;
+        }
     }
 
     public static byte[] keyData(final PGPKeyRing keyRing) {
