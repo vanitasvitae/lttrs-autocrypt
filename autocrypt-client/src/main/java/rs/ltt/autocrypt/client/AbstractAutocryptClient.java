@@ -245,6 +245,9 @@ public abstract class AbstractAutocryptClient {
             final String address,
             final boolean isReplyToEncrypted,
             final AccountState accountState) {
+        if (!accountState.isEnabled()) {
+            return Futures.immediateFuture(Recommendation.DISABLE);
+        }
         return Futures.transform(
                 getPreliminaryRecommendation(address),
                 preRecommendation ->

@@ -96,6 +96,36 @@ public class SimpleAutocryptClientTest {
     }
 
     @Test
+    public void recommendationForDisabledAccount() throws ExecutionException, InterruptedException {
+        final SimpleAutocryptClient aliceClient =
+                SimpleAutocryptClient.builder()
+                        .defaultSettings(
+                                new DefaultSettings(false, EncryptionPreference.NO_PREFERENCE))
+                        .userId("alice@example.com")
+                        .build();
+        final SimpleAutocryptClient bobClient =
+                SimpleAutocryptClient.builder().userId("bob@example.com").build();
+
+        aliceClient
+                .processAutocryptHeader(
+                        "bob@example.com",
+                        Instant.now(),
+                        bobClient.getAutocryptHeader().get().toHeaderValue())
+                .get();
+        final Recommendation recommendation =
+                aliceClient.getRecommendation("bob@example.com", false).get();
+        Assertions.assertEquals(Decision.DISABLE, recommendation.getDecision());
+
+        final Decision decision =
+                Recommendation.combine(
+                        aliceClient
+                                .getRecommendations(
+                                        Arrays.asList("bob@example.com", "bob@example.com"))
+                                .get());
+        Assertions.assertEquals(Decision.DISABLE, decision);
+    }
+
+    @Test
     public void recommendationsMultipleReceiver() throws ExecutionException, InterruptedException {
         final SimpleAutocryptClient aliceClient =
                 SimpleAutocryptClient.builder().userId("alice@example.com").build();
