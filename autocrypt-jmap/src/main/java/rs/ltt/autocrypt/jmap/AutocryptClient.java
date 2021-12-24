@@ -21,6 +21,7 @@ import rs.ltt.autocrypt.client.AbstractAutocryptClient;
 import rs.ltt.autocrypt.client.DefaultSettings;
 import rs.ltt.autocrypt.client.Recommendation;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.storage.AccountState;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
@@ -80,25 +81,28 @@ public class AutocryptClient extends AbstractAutocryptClient {
     }
 
     public ListenableFuture<Email> injectAutocryptHeader(final Email email) {
-        final ListenableFuture<AutocryptHeader> headerFuture;
-        final List<EmailAddress> from = email.getFrom();
-        if (from != null && from.size() == 1) {
-            headerFuture = this.getAutocryptHeader(from.get(0));
-        } else {
-            headerFuture = this.getAutocryptHeader();
-        }
         return Futures.transform(
-                headerFuture,
-                header -> injectAutocryptHeader(email, header),
+                getAccountStateFuture(),
+                accountState -> injectAutocryptHeader(email, accountState),
                 MoreExecutors.directExecutor());
     }
 
-    public ListenableFuture<AutocryptHeader> getAutocryptHeader(final EmailAddress from) {
-        final String address = from.getEmail();
-        if (address == null) {
-            throw new IllegalArgumentException("EmailAddress did not contain valid address");
+    private Email injectAutocryptHeader(final Email email, final AccountState accountState) {
+        if (!accountState.isEnabled()) {
+            return email;
         }
-        return getAutocryptHeader(address);
+        final AutocryptHeader header;
+        final List<EmailAddress> from = email.getFrom();
+        if (from != null && from.size() == 1) {
+            final String address = from.get(0).getEmail();
+            if (address == null) {
+                throw new IllegalArgumentException("EmailAddress did not contain valid address");
+            }
+            header = this.getAutocryptHeader(address, accountState);
+        } else {
+            header = this.getAutocryptHeader(accountState);
+        }
+        return injectAutocryptHeader(email, header);
     }
 
     private static Email injectAutocryptHeader(final Email email, final AutocryptHeader header) {
@@ -107,6 +111,14 @@ public class AutocryptClient extends AbstractAutocryptClient {
         } else {
             return email;
         }
+    }
+
+    public ListenableFuture<AutocryptHeader> getAutocryptHeader(final EmailAddress from) {
+        final String address = from.getEmail();
+        if (address == null) {
+            throw new IllegalArgumentException("EmailAddress did not contain valid address");
+        }
+        return getAutocryptHeader(address);
     }
 
     public ListenableFuture<EncryptionResult> encrypt(

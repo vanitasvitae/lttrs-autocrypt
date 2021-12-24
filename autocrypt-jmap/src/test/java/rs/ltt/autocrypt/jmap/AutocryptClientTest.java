@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.pgpainless.PGPainless;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import rs.ltt.autocrypt.client.DefaultSettings;
+import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.jmap.common.entity.Email;
@@ -115,6 +116,39 @@ public class AutocryptClientTest {
         final String headerValue = autocryptHeaders.get(0);
         assertThat(headerValue, startsWith("addr=alice@example.com;"));
         assertThat(headerValue, containsString("prefer-encrypt=mutual"));
+    }
+
+    @Test
+    public void headerDifferentFrom() throws ExecutionException, InterruptedException {
+        final AutocryptClient autocryptClient =
+                AutocryptClient.builder()
+                        .userId("alice@example.com")
+                        .defaultSettings(new DefaultSettings(true, EncryptionPreference.MUTUAL))
+                        .build();
+        final AutocryptHeader header =
+                autocryptClient
+                        .getAutocryptHeader(
+                                EmailAddress.builder().email("support@example.com").build())
+                        .get();
+        Assertions.assertEquals(header.getAddress(), "support@example.com");
+    }
+
+    @Test
+    public void disableAccountAndInject() throws ExecutionException, InterruptedException {
+        final AutocryptClient autocryptClient =
+                AutocryptClient.builder()
+                        .userId("bob@example.com")
+                        .defaultSettings(new DefaultSettings(false, EncryptionPreference.MUTUAL))
+                        .build();
+        final Email email =
+                Email.builder()
+                        .subject("Normal subject")
+                        .from(EmailAddress.builder().email("bob@example.com").build())
+                        .to(EmailAddress.builder().email("alice@example.com").build())
+                        .build();
+        final Email result = autocryptClient.injectAutocryptHeader(email).get();
+        final List<String> autocryptHeaders = result.getAutocrypt();
+        Assertions.assertTrue(autocryptHeaders.isEmpty());
     }
 
     @Test

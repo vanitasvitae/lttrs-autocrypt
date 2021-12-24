@@ -80,14 +80,14 @@ public abstract class AbstractAutocryptClient {
                 getAccountStateFuture(), this::getAutocryptHeader, MoreExecutors.directExecutor());
     }
 
-    private ListenableFuture<AccountState> getAccountStateFuture() {
+    protected ListenableFuture<AccountState> getAccountStateFuture() {
         if (accountState != null) {
             return Futures.immediateFuture(accountState);
         }
         return Futures.submit(this::getAccountState, ioExecutorService);
     }
 
-    private AutocryptHeader getAutocryptHeader(final AccountState accountState) {
+    protected AutocryptHeader getAutocryptHeader(final AccountState accountState) {
         final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
         return AutocryptHeader.of(secretKeyRing, accountState.getEncryptionPreference());
     }
@@ -129,7 +129,8 @@ public abstract class AbstractAutocryptClient {
                 MoreExecutors.directExecutor());
     }
 
-    private AutocryptHeader getAutocryptHeader(final String from, final AccountState accountState) {
+    protected AutocryptHeader getAutocryptHeader(
+            final String from, final AccountState accountState) {
         final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
         return AutocryptHeader.of(from, secretKeyRing, accountState.getEncryptionPreference());
     }
