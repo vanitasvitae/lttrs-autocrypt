@@ -215,6 +215,20 @@ public abstract class AbstractAutocryptClient {
         }
     }
 
+    public ListenableFuture<Void> setEnabled(final boolean enabled) {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> setEnabled(accountState, enabled),
+                ioExecutorService);
+    }
+
+    public Void setEnabled(final AccountState accountState, final boolean enabled) {
+        final AccountState freshAccountState =
+                ImmutableAccountState.builder().from(accountState).isEnabled(enabled).build();
+        storeAccountState(freshAccountState);
+        return null;
+    }
+
     public ListenableFuture<Void> setEncryptionPreference(final EncryptionPreference preference) {
         return Futures.transform(
                 getAccountStateFuture(),
