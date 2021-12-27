@@ -122,6 +122,22 @@ public abstract class AbstractAutocryptClient {
         this.accountState = accountState;
     }
 
+    public ListenableFuture<Void> ensureEverythingIsSetup() {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> {
+                    if (accountState == null) {
+                        throw new IllegalStateException("AccountState was null");
+                    }
+                    final byte[] secretKey = accountState.getSecretKey();
+                    if (secretKey == null || secretKey.length == 0) {
+                        throw new IllegalStateException("SecretKey was null");
+                    }
+                    return null;
+                },
+                MoreExecutors.directExecutor());
+    }
+
     public ListenableFuture<AutocryptHeader> getAutocryptHeader(final String from) {
         return Futures.transform(
                 getAccountStateFuture(),
