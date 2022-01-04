@@ -10,14 +10,20 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.concurrent.ExecutionException;
+import org.apache.james.mime4j.MimeException;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.pgpainless.decryption_verification.DecryptionStream;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.storage.Storage;
+import rs.ltt.autocrypt.jmap.mime.AttachmentRetriever;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
+import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
+import rs.ltt.jmap.client.blob.Download;
 import rs.ltt.jmap.client.blob.OutputStreamUpload;
 import rs.ltt.jmap.client.blob.Progress;
+import rs.ltt.jmap.common.entity.Downloadable;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
 import rs.ltt.jmap.common.entity.Upload;
@@ -85,6 +91,36 @@ public class AutocryptPlugin extends PluginService.Plugin {
             throw new IllegalStateException("Plugin has not been installed yet");
         }
         return autocryptClient;
+    }
+
+    public ListenableFuture<Email> downloadAndDecrypt(
+            final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
+        final ListenableFuture<Download> downloadFuture =
+                getService(BinaryService.class).download(downloadable);
+        final ListenableFuture<DecryptionStream> streamFuture =
+                Futures.transformAsync(
+                        downloadFuture,
+                        download -> getAutocryptClient().decrypt(download.getInputStream()),
+                        MoreExecutors.directExecutor());
+        return Futures.transformAsync(
+                streamFuture,
+                ds -> this.parseMimeMessage(ds, downloadable.getBlobId(), attachmentRetriever),
+                MoreExecutors.directExecutor());
+    }
+
+    @NonNull
+    private ListenableFuture<Email> parseMimeMessage(
+            final DecryptionStream decryptionStream,
+            final String blobId,
+            final AttachmentRetriever attachmentRetriever) {
+        final Email email;
+        try {
+            email = MimeTransformer.transform(decryptionStream, blobId, attachmentRetriever);
+        } catch (final IOException | MimeException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        // TODO analyse result?
+        return Futures.immediateFuture(email);
     }
 
     @Override

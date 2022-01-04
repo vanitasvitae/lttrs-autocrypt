@@ -8,13 +8,17 @@ import java.io.*;
 import java.util.Collection;
 import java.util.Objects;
 import org.apache.james.mime4j.Charsets;
+import org.apache.james.mime4j.MimeException;
 import org.apache.james.mime4j.dom.*;
 import org.apache.james.mime4j.internal.AbstractEntityBuilder;
 import org.apache.james.mime4j.message.BodyPart;
 import org.apache.james.mime4j.message.BodyPartBuilder;
 import org.apache.james.mime4j.message.DefaultMessageWriter;
 import org.apache.james.mime4j.message.MultipartBuilder;
+import org.apache.james.mime4j.parser.MimeStreamParser;
+import org.apache.james.mime4j.stream.MimeConfig;
 import org.apache.james.mime4j.stream.NameValuePair;
+import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 
 public class MimeTransformer {
@@ -45,6 +49,21 @@ public class MimeTransformer {
         }
 
         return builder.build();
+    }
+
+    public static Email transform(
+            final InputStream inputStream,
+            final String blobId,
+            final AttachmentRetriever attachmentRetriever)
+            throws MimeException, IOException {
+        final MimeConfig mimeConfig = new MimeConfig.Builder().build();
+        final MimeStreamParser mimeStreamParser = new MimeStreamParser(mimeConfig);
+        mimeStreamParser.setContentDecoding(true);
+        final EmailContentHandler emailContentHandler =
+                new EmailContentHandler(blobId, attachmentRetriever);
+        mimeStreamParser.setContentHandler(emailContentHandler);
+        mimeStreamParser.parse(inputStream);
+        return emailContentHandler.buildEmail();
     }
 
     private static void build(AbstractEntityBuilder builder, final BodyPartTuple bodyPartTuple) {
@@ -85,12 +104,12 @@ public class MimeTransformer {
             }
 
             @Override
-            public Reader getReader() throws IOException {
+            public Reader getReader() {
                 return new InputStreamReader(bodyPartTuple.inputStream);
             }
 
             @Override
-            public InputStream getInputStream() throws IOException {
+            public InputStream getInputStream() {
                 return bodyPartTuple.inputStream;
             }
         };

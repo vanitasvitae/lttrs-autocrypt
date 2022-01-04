@@ -1,8 +1,11 @@
 package rs.ltt.autocrypt.jmap;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.io.ByteStreams;
 import com.google.common.net.MediaType;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
@@ -17,10 +20,7 @@ import rs.ltt.autocrypt.client.Recommendation;
 import rs.ltt.autocrypt.client.storage.InMemoryStorage;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
-import rs.ltt.jmap.common.entity.Email;
-import rs.ltt.jmap.common.entity.EmailAddress;
-import rs.ltt.jmap.common.entity.EmailBodyPart;
-import rs.ltt.jmap.common.entity.Upload;
+import rs.ltt.jmap.common.entity.*;
 import rs.ltt.jmap.common.entity.query.EmailQuery;
 import rs.ltt.jmap.mock.server.JmapDispatcher;
 import rs.ltt.jmap.mock.server.MockMailServer;
@@ -134,5 +134,48 @@ public class AutocryptPluginTest {
                         .get(30, TimeUnit.SECONDS);
 
         Assertions.assertTrue(upload.getSize() > 1000);
+    }
+
+    @Test
+    public void downloadAndDecrypt() throws ExecutionException, InterruptedException {
+        final FixedKeyStorage storage =
+                new FixedKeyStorage(
+                        FixedKeyStorage.SECRET_KEY_ALICE,
+                        Collections.singleton(
+                                PGPainless.extractCertificate(FixedKeyStorage.SECRET_KEY_BOB)));
+
+        final MockWebServer server = new MockWebServer();
+        final MockMailServer mailServer = new MockMailServer(2);
+        server.setDispatcher(mailServer);
+
+        final Mua mua =
+                Mua.builder()
+                        .cache(new InMemoryCache())
+                        .sessionResource(server.url(JmapDispatcher.WELL_KNOWN_PATH))
+                        .username(mailServer.getUsername())
+                        .password(JmapDispatcher.PASSWORD)
+                        .accountId(mailServer.getAccountId())
+                        .plugin(
+                                AutocryptPlugin.class,
+                                new AutocryptPlugin(mailServer.getUsername(), storage))
+                        .build();
+        final Downloadable downloadable =
+                EmailBodyPart.builder().blobId("a85f2332-afc9-4a3a-b38f-45eecd81004a").build();
+        final List<byte[]> attachments = new ArrayList<>();
+        final Email email =
+                mua.getPlugin(AutocryptPlugin.class)
+                        .downloadAndDecrypt(
+                                downloadable,
+                                (attachment, inputStream) -> {
+                                    final ByteArrayOutputStream attachmentOutputStream =
+                                            new ByteArrayOutputStream();
+                                    ByteStreams.copy(inputStream, attachmentOutputStream);
+                                    attachments.add(attachmentOutputStream.toByteArray());
+                                })
+                        .get();
+        Assertions.assertEquals(1, attachments.size());
+        Assertions.assertEquals(1, email.getAttachments().size());
+        Assertions.assertEquals(1, email.getTextBody().size());
+        System.out.println(email);
     }
 }
