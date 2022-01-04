@@ -122,7 +122,7 @@ public class MimeTransformerTest {
     }
 
     @Test
-    public void emailFromMAlternative() throws IOException, MimeException {
+    public void emailFromAlternative() throws IOException, MimeException {
         final Message.Builder builder = Message.Builder.of();
         final MultipartBuilder alternativeMultipartBuilder = MultipartBuilder.create("alternative");
         alternativeMultipartBuilder.addBodyPart(

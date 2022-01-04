@@ -33,7 +33,7 @@ import rs.ltt.jmap.mua.util.EmailUtil;
 
 public class AutocryptClient extends AbstractAutocryptClient {
 
-    private static final ListeningExecutorService CRYPTO_EXECUTOR =
+    protected static final ListeningExecutorService CRYPTO_EXECUTOR =
             MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
     protected AutocryptClient(

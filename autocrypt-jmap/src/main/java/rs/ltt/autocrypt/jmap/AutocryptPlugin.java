@@ -105,7 +105,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
         return Futures.transformAsync(
                 streamFuture,
                 ds -> this.parseMimeMessage(ds, downloadable.getBlobId(), attachmentRetriever),
-                MoreExecutors.directExecutor());
+                AutocryptClient.CRYPTO_EXECUTOR);
     }
 
     @NonNull
