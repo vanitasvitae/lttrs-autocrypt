@@ -130,6 +130,10 @@ public class EmailContentHandler implements ContentHandler {
                         bodyPartBuilder.name(attribute.getValue());
                     }
                 }
+                break;
+            default:
+                LOGGER.debug("Encountered unknown header {}", name);
+                break;
         }
     }
 
