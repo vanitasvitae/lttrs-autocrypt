@@ -160,7 +160,7 @@ public class AutocryptPluginTest {
                                 new AutocryptPlugin(mailServer.getUsername(), storage))
                         .build();
         final Downloadable downloadable =
-                EmailBodyPart.builder().blobId("a85f2332-afc9-4a3a-b38f-45eecd81004a").build();
+                EncryptedBodyPart.getDownloadable("a85f2332-afc9-4a3a-b38f-45eecd81004a");
         final List<byte[]> attachments = new ArrayList<>();
         final Email email =
                 mua.getPlugin(AutocryptPlugin.class)
