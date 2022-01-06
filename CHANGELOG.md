@@ -1,3 +1,7 @@
+### 0.2.9 (2022-01-06)
+
+* Support decryption and Mime to JMAP Email conversion
+
 ### 0.1.2 (2021-12-27)
 
 * Expose ensureEverythingIsSetup method in AutocryptClient
