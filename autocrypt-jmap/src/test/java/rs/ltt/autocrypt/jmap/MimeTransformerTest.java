@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
+import rs.ltt.jmap.common.entity.Attachment;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 
@@ -113,11 +114,21 @@ public class MimeTransformerTest {
                         (attachment, inputStream) -> {
                             final ByteArrayOutputStream attachmentOutputStream =
                                     new ByteArrayOutputStream();
-                            ByteStreams.copy(inputStream, attachmentOutputStream);
+                            final long bytes =
+                                    ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
+                            return bytes;
                         });
         Assertions.assertEquals(1, attachments.size());
         Assertions.assertEquals(1, email.getAttachments().size());
+        final Attachment attachment = email.getAttachments().get(0);
+        Assertions.assertEquals(BLACK_SQUARE_PNG.length, attachment.getSize());
+        Assertions.assertEquals("black_square.png", attachment.getName());
+        // blobId is a combination of the PTA prefix (PlainTextAttachment), a hash of the parent
+        // blob id, and a partId postfix
+        Assertions.assertEquals(
+                "PTA-4ff52dd12c768abd4ce7c14da2fd233564a012c4a00ee9ba37fb97c209749230-5",
+                attachment.getBlobId());
         Assertions.assertEquals(1, email.getTextBody().size());
     }
 
@@ -148,8 +159,10 @@ public class MimeTransformerTest {
                         (attachment, inputStream) -> {
                             final ByteArrayOutputStream attachmentOutputStream =
                                     new ByteArrayOutputStream();
-                            ByteStreams.copy(inputStream, attachmentOutputStream);
+                            final long bytes =
+                                    ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
+                            return bytes;
                         });
         Assertions.assertEquals(0, attachments.size());
         Assertions.assertEquals(0, email.getAttachments().size());
@@ -174,8 +187,10 @@ public class MimeTransformerTest {
                         (attachment, inputStream) -> {
                             final ByteArrayOutputStream attachmentOutputStream =
                                     new ByteArrayOutputStream();
-                            ByteStreams.copy(inputStream, attachmentOutputStream);
+                            final long bytes =
+                                    ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
+                            return bytes;
                         });
         Assertions.assertEquals(0, attachments.size());
         Assertions.assertEquals(0, email.getAttachments().size());

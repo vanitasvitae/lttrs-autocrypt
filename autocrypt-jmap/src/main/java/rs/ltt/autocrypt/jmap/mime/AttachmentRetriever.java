@@ -6,6 +6,6 @@ import rs.ltt.jmap.common.entity.Attachment;
 
 public interface AttachmentRetriever {
 
-    void onAttachmentRetrieved(final Attachment attachment, final InputStream inputStream)
+    long onAttachmentRetrieved(final Attachment attachment, final InputStream inputStream)
             throws IOException;
 }

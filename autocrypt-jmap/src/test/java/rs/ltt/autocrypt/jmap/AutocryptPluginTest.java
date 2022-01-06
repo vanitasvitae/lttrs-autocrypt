@@ -169,8 +169,10 @@ public class AutocryptPluginTest {
                                 (attachment, inputStream) -> {
                                     final ByteArrayOutputStream attachmentOutputStream =
                                             new ByteArrayOutputStream();
-                                    ByteStreams.copy(inputStream, attachmentOutputStream);
+                                    final long bytes =
+                                            ByteStreams.copy(inputStream, attachmentOutputStream);
                                     attachments.add(attachmentOutputStream.toByteArray());
+                                    return bytes;
                                 })
                         .get();
         Assertions.assertEquals(1, attachments.size());

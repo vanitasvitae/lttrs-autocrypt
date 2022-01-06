@@ -21,6 +21,7 @@ import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 import rs.ltt.jmap.common.entity.EmailBodyValue;
 
+@SuppressWarnings("UnstableApiUsage")
 public class EmailContentHandler implements ContentHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EmailContentHandler.class);
@@ -143,11 +144,14 @@ public class EmailContentHandler implements ContentHandler {
 
     @Override
     public void body(BodyDescriptor bodyDescriptor, InputStream inputStream) throws IOException {
-        final EmailBodyPart emailBodyPart = this.emailBodyPartBuilders.getLast().build();
+        final EmailBodyPart.EmailBodyPartBuilder bodyPartBuilder =
+                this.emailBodyPartBuilders.getLast();
+        final EmailBodyPart emailBodyPart = bodyPartBuilder.build();
         final MediaType mediaType = emailBodyPart.getMediaType();
+        final long bytesCopied;
         if (mediaType != null && (mediaType.is(TEXT_PLAIN) || mediaType.is(TEXT_HTML))) {
             final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            ByteStreams.copy(inputStream, byteArrayOutputStream);
+            bytesCopied = ByteStreams.copy(inputStream, byteArrayOutputStream);
             final String body =
                     new String(byteArrayOutputStream.toByteArray(), StandardCharsets.UTF_8);
             final EmailBodyValue emailBodyValue =
@@ -158,8 +162,10 @@ public class EmailContentHandler implements ContentHandler {
                             .build();
             emailBuilder.bodyValue(emailBodyPart.getPartId(), emailBodyValue);
         } else {
-            this.attachmentRetriever.onAttachmentRetrieved(emailBodyPart, inputStream);
+            bytesCopied =
+                    this.attachmentRetriever.onAttachmentRetrieved(emailBodyPart, inputStream);
         }
+        bodyPartBuilder.size(bytesCopied);
     }
 
     @Override
@@ -206,13 +212,14 @@ public class EmailContentHandler implements ContentHandler {
         this.emailBodyPartBuilders.add(builder);
         this.partId++;
         builder.partId(String.valueOf(this.partId));
-        builder.blobId(
+        final String hash =
                 Hashing.sha256()
                         .newHasher()
                         .putInt(this.partId)
                         .putBytes(blobIdSeed)
                         .hash()
-                        .toString());
+                        .toString();
+        builder.blobId(String.format("PTA-%s-%d", hash, partId));
     }
 
     public Email buildEmail() {
