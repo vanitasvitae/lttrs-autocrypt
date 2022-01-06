@@ -20,8 +20,7 @@ import org.pgpainless.decryption_verification.DecryptionStream;
 import org.pgpainless.encryption_signing.EncryptionStream;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
-import rs.ltt.autocrypt.client.storage.InMemoryStorage;
-import rs.ltt.autocrypt.client.storage.Storage;
+import rs.ltt.autocrypt.client.storage.*;
 
 public class SimpleAutocryptClientTest {
 
@@ -67,6 +66,59 @@ public class SimpleAutocryptClientTest {
         PGPPublicKeyRing publicKey = PGPKeyRings.readPublicKeyRing(autocryptHeader.getKeyData());
         Assertions.assertEquals("test@example.com", autocryptHeader.getAddress());
         Assertions.assertTrue(PGPKeyRings.isSuitableForEncryption(publicKey));
+
+        Assertions.assertNull(autocryptClient.ensureEverythingIsSetup().get());
+    }
+
+    @Test
+    public void brokenStorageBackend() {
+        final Storage brokenStorage =
+                new Storage() {
+                    @Override
+                    public boolean updateLastSeen(String address, Instant effectiveDate) {
+                        return false;
+                    }
+
+                    @Override
+                    public void updateAutocrypt(
+                            String address,
+                            Instant effectiveDate,
+                            byte[] publicKey,
+                            EncryptionPreference preference) {}
+
+                    @Override
+                    public boolean updateGossip(
+                            String address, Instant effectiveData, byte[] publicKey) {
+                        return false;
+                    }
+
+                    @Override
+                    public PeerState getPeerState(String address) {
+                        return null;
+                    }
+
+                    @Override
+                    public AccountState getAccountState(String userId) {
+                        return ImmutableAccountState.builder()
+                                .secretKey(new byte[] {})
+                                .isEnabled(true)
+                                .encryptionPreference(EncryptionPreference.NO_PREFERENCE)
+                                .build();
+                    }
+
+                    @Override
+                    public void setAccountState(String userId, AccountState accountState) {}
+                };
+        final SimpleAutocryptClient autocryptClient =
+                SimpleAutocryptClient.builder()
+                        .userId("test@example.com")
+                        .storage(brokenStorage)
+                        .build();
+        final ExecutionException ee =
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () -> autocryptClient.ensureEverythingIsSetup().get());
+        assertThat(ee.getCause(), CoreMatchers.instanceOf(IllegalStateException.class));
     }
 
     @Test

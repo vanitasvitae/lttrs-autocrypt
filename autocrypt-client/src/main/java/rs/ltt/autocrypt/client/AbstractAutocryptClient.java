@@ -152,24 +152,25 @@ public abstract class AbstractAutocryptClient {
     }
 
     public ListenableFuture<DecryptionStream> decrypt(final InputStream inputStream) {
-        return Futures.transform(
+        return Futures.transformAsync(
                 getAccountStateFuture(),
                 accountState -> decrypt(inputStream, accountState),
                 MoreExecutors.directExecutor());
     }
 
-    private DecryptionStream decrypt(
+    private ListenableFuture<DecryptionStream> decrypt(
             final InputStream inputStream, final AccountState accountState) {
         final PGPSecretKeyRing secretKeyRing = PGPKeyRings.readSecretKeyRing(accountState);
         // TODO do we want to add sender verification?
         final ConsumerOptions consumerOptions =
                 new ConsumerOptions().addDecryptionKey(secretKeyRing);
         try {
-            return PGPainless.decryptAndOrVerify()
-                    .onInputStream(inputStream)
-                    .withOptions(consumerOptions);
+            return Futures.immediateFuture(
+                    PGPainless.decryptAndOrVerify()
+                            .onInputStream(inputStream)
+                            .withOptions(consumerOptions));
         } catch (final PGPException | IOException e) {
-            throw new IllegalStateException("Unable to create DecryptionStream", e);
+            return Futures.immediateFailedFuture(e);
         }
     }
 
@@ -185,7 +186,7 @@ public abstract class AbstractAutocryptClient {
             final Collection<String> recipients,
             final OutputStream outputStream,
             final AccountState accountState) {
-        return Futures.transform(
+        return Futures.transformAsync(
                 getRecommendations(recipients),
                 recommendations -> {
                     if (Recommendation.combine(recommendations) == Decision.DISABLE) {
@@ -199,7 +200,7 @@ public abstract class AbstractAutocryptClient {
                 MoreExecutors.directExecutor());
     }
 
-    private EncryptionStream createEncryptionStream(
+    private ListenableFuture<EncryptionStream> createEncryptionStream(
             final OutputStream outputStream,
             final Collection<PGPPublicKeyRing> recipients,
             final AccountState accountState) {
@@ -217,17 +218,18 @@ public abstract class AbstractAutocryptClient {
                                     secretKeyRing,
                                     DocumentSignatureType.CANONICAL_TEXT_DOCUMENT);
         } catch (final PGPException e) {
-            throw new IllegalStateException("Secret key is unable to generate signatures", e);
+            return Futures.immediateFailedFuture(e);
         }
         final ProducerOptions producerOptions =
                 ProducerOptions.signAndEncrypt(encryptionOptions, signingOptions)
                         .setAsciiArmor(true);
         try {
-            return PGPainless.encryptAndOrSign()
-                    .onOutputStream(outputStream)
-                    .withOptions(producerOptions);
+            return Futures.immediateFuture(
+                    PGPainless.encryptAndOrSign()
+                            .onOutputStream(outputStream)
+                            .withOptions(producerOptions));
         } catch (final PGPException | IOException e) {
-            throw new IllegalStateException("Unable to create EncryptionStream", e);
+            return Futures.immediateFailedFuture(e);
         }
     }
 
