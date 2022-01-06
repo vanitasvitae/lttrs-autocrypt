@@ -68,4 +68,28 @@ public class EncryptedBodyPart {
         }
         return Optional.absent();
     }
+
+    public static Downloadable getDownloadable(final String blobId) {
+        return new Downloadable() {
+            @Override
+            public String getName() {
+                return FILENAME;
+            }
+
+            @Override
+            public String getBlobId() {
+                return blobId;
+            }
+
+            @Override
+            public String getType() {
+                return MediaType.OCTET_STREAM.toString();
+            }
+
+            @Override
+            public Long getSize() {
+                return null;
+            }
+        };
+    }
 }

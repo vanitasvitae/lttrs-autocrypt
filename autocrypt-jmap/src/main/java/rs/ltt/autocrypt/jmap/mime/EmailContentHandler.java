@@ -27,6 +27,7 @@ public class EmailContentHandler implements ContentHandler {
 
     private static final MediaType TEXT_PLAIN = MediaType.create("text", "plain");
     private static final MediaType TEXT_HTML = MediaType.create("text", "html");
+    private static final MediaType MULTIPART_ANY = MediaType.create("multipart", "*");
 
     private final Email.EmailBuilder emailBuilder = Email.builder();
     private final AttachmentRetriever attachmentRetriever;
@@ -43,10 +44,13 @@ public class EmailContentHandler implements ContentHandler {
     }
 
     @Override
-    public void startMessage() {}
+    public void startMessage() {
+        pushEmailBodyPart();
+    }
 
     @Override
     public void endMessage() throws MimeException {
+        pollEmailBodyPart();
         final int pendingBodyPartBuilders = emailBodyPartBuilders.size();
         if (pendingBodyPartBuilders > 0) {
             throw new MimeException(pendingBodyPartBuilders + "pending bodyPartBuilders");
@@ -55,54 +59,12 @@ public class EmailContentHandler implements ContentHandler {
 
     @Override
     public void startBodyPart() {
-        final EmailBodyPart.EmailBodyPartBuilder builder = EmailBodyPart.builder();
-        this.emailBodyPartBuilders.add(builder);
-        this.partId++;
-        builder.partId(String.valueOf(this.partId));
-        builder.blobId(
-                Hashing.sha256()
-                        .newHasher()
-                        .putInt(this.partId)
-                        .putBytes(blobIdSeed)
-                        .hash()
-                        .toString());
+        pushEmailBodyPart();
     }
 
     @Override
     public void endBodyPart() {
-        final EmailBodyPart.EmailBodyPartBuilder builder = this.emailBodyPartBuilders.pollLast();
-        final EmailBodyPart emailBodyPart = builder.build();
-        final MediaType mediaType = emailBodyPart.getMediaType();
-        if (mediaType != null && "multipart".equals(mediaType.type())) {
-            return;
-        }
-        if (isAttachment(emailBodyPart)) {
-            emailBuilder.attachment(emailBodyPart);
-            return;
-        }
-        final List<EmailBodyPart> alternatives = this.alternativesMap.get(this.multipartDepth);
-        if (alternatives != null) {
-            alternatives.add(emailBodyPart);
-        } else {
-            emailBuilder.textBody(emailBodyPart);
-        }
-    }
-
-    private static boolean isAttachment(final EmailBodyPart emailBodyPart) {
-        final String disposition = emailBodyPart.getDisposition();
-        if ("attachment".equals(disposition)) {
-            return true;
-        }
-        final MediaType mediaType = emailBodyPart.getMediaType();
-        return mediaType == null || !isMediaTypeInline(mediaType);
-    }
-
-    private static boolean isMediaTypeInline(final MediaType mediaType) {
-        return mediaType.is(TEXT_PLAIN)
-                || mediaType.is(TEXT_HTML)
-                || mediaType.is(MediaType.ANY_IMAGE_TYPE)
-                || mediaType.is(MediaType.ANY_AUDIO_TYPE)
-                || mediaType.is(MediaType.ANY_VIDEO_TYPE);
+        pollEmailBodyPart();
     }
 
     @Override
@@ -138,13 +100,13 @@ public class EmailContentHandler implements ContentHandler {
     }
 
     @Override
-    public void endHeader() throws MimeException {}
+    public void endHeader() {}
 
     @Override
-    public void preamble(InputStream inputStream) throws MimeException, IOException {}
+    public void preamble(InputStream inputStream) {}
 
     @Override
-    public void epilogue(InputStream inputStream) throws MimeException, IOException {}
+    public void epilogue(InputStream inputStream) {}
 
     @Override
     public void startMultipart(final BodyDescriptor bodyDescriptor) {
@@ -157,24 +119,26 @@ public class EmailContentHandler implements ContentHandler {
     @Override
     public void endMultipart() {
         final List<EmailBodyPart> alternatives = this.alternativesMap.get(this.multipartDepth);
-        if (alternatives != null) {
-            final Optional<EmailBodyPart> textVariant =
-                    Iterables.tryFind(
-                            alternatives,
-                            emailBodyPart -> {
-                                final MediaType mediaType = emailBodyPart.getMediaType();
-                                return mediaType != null && mediaType.is(TEXT_PLAIN);
-                            });
-            if (textVariant.isPresent()) {
-                emailBuilder.textBody(textVariant.get());
-            } else {
-                final EmailBodyPart emailBodyPart = Iterables.getFirst(alternatives, null);
-                if (emailBodyPart != null) {
-                    emailBuilder.textBody(emailBodyPart);
-                }
-            }
+        if (alternatives != null && !alternatives.isEmpty()) {
+            emailBuilder.textBody(pickAlternative(alternatives, TEXT_PLAIN));
         }
         this.multipartDepth--;
+    }
+
+    private static EmailBodyPart pickAlternative(
+            List<EmailBodyPart> alternatives, final MediaType preferredMediaType) {
+        final Optional<EmailBodyPart> textVariant =
+                Iterables.tryFind(
+                        alternatives,
+                        emailBodyPart -> {
+                            final MediaType mediaType = emailBodyPart.getMediaType();
+                            return mediaType != null && mediaType.is(preferredMediaType);
+                        });
+        if (textVariant.isPresent()) {
+            return textVariant.get();
+        } else {
+            return Iterables.getFirst(alternatives, null);
+        }
     }
 
     @Override
@@ -199,7 +163,57 @@ public class EmailContentHandler implements ContentHandler {
     }
 
     @Override
-    public void raw(InputStream inputStream) throws MimeException, IOException {}
+    public void raw(InputStream inputStream) {}
+
+    private void pollEmailBodyPart() {
+        final EmailBodyPart.EmailBodyPartBuilder builder = this.emailBodyPartBuilders.pollLast();
+        final EmailBodyPart emailBodyPart = builder.build();
+        final MediaType mediaType = emailBodyPart.getMediaType();
+        if (mediaType != null && mediaType.is(MULTIPART_ANY)) {
+            return;
+        }
+        if (isAttachment(emailBodyPart)) {
+            emailBuilder.attachment(emailBodyPart);
+            return;
+        }
+        final List<EmailBodyPart> alternatives = this.alternativesMap.get(this.multipartDepth);
+        if (alternatives != null) {
+            alternatives.add(emailBodyPart);
+        } else {
+            emailBuilder.textBody(emailBodyPart);
+        }
+    }
+
+    private static boolean isAttachment(final EmailBodyPart emailBodyPart) {
+        final String disposition = emailBodyPart.getDisposition();
+        if ("attachment".equals(disposition)) {
+            return true;
+        }
+        final MediaType mediaType = emailBodyPart.getMediaType();
+        return mediaType == null || !isMediaTypeInline(mediaType);
+    }
+
+    private static boolean isMediaTypeInline(final MediaType mediaType) {
+        return mediaType.is(TEXT_PLAIN)
+                || mediaType.is(TEXT_HTML)
+                || mediaType.is(MediaType.ANY_IMAGE_TYPE)
+                || mediaType.is(MediaType.ANY_AUDIO_TYPE)
+                || mediaType.is(MediaType.ANY_VIDEO_TYPE);
+    }
+
+    private void pushEmailBodyPart() {
+        final EmailBodyPart.EmailBodyPartBuilder builder = EmailBodyPart.builder();
+        this.emailBodyPartBuilders.add(builder);
+        this.partId++;
+        builder.partId(String.valueOf(this.partId));
+        builder.blobId(
+                Hashing.sha256()
+                        .newHasher()
+                        .putInt(this.partId)
+                        .putBytes(blobIdSeed)
+                        .hash()
+                        .toString());
+    }
 
     public Email buildEmail() {
         return this.emailBuilder.build();

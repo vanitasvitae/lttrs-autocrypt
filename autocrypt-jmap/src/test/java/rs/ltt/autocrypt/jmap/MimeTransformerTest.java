@@ -155,4 +155,30 @@ public class MimeTransformerTest {
         Assertions.assertEquals(0, email.getAttachments().size());
         Assertions.assertEquals(1, email.getTextBody().size());
     }
+
+    @Test
+    public void emailFromSimpleText() throws IOException, MimeException {
+        final ByteArrayOutputStream resultOutputStream = new ByteArrayOutputStream();
+        final BodyPartTuple textBody =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).build(),
+                        "Hello World! Schöne Grüße");
+        MimeTransformer.transform(ImmutableList.of(textBody), resultOutputStream);
+        final ByteArrayInputStream byteArrayInputStream =
+                new ByteArrayInputStream(resultOutputStream.toByteArray());
+        final List<byte[]> attachments = new ArrayList<>();
+        final Email email =
+                MimeTransformer.transform(
+                        byteArrayInputStream,
+                        "test",
+                        (attachment, inputStream) -> {
+                            final ByteArrayOutputStream attachmentOutputStream =
+                                    new ByteArrayOutputStream();
+                            ByteStreams.copy(inputStream, attachmentOutputStream);
+                            attachments.add(attachmentOutputStream.toByteArray());
+                        });
+        Assertions.assertEquals(0, attachments.size());
+        Assertions.assertEquals(0, email.getAttachments().size());
+        Assertions.assertEquals(1, email.getTextBody().size());
+    }
 }
