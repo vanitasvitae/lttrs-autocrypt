@@ -14,7 +14,6 @@ import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.Executors;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.pgpainless.encryption_signing.EncryptionStream;
 import rs.ltt.autocrypt.client.AbstractAutocryptClient;
@@ -32,9 +31,6 @@ import rs.ltt.jmap.common.entity.IdentifiableEmailWithAddresses;
 import rs.ltt.jmap.mua.util.EmailUtil;
 
 public class AutocryptClient extends AbstractAutocryptClient {
-
-    protected static final ListeningExecutorService CRYPTO_EXECUTOR =
-            MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
     protected AutocryptClient(
             String userId,

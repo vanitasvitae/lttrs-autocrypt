@@ -2,14 +2,16 @@ package rs.ltt.autocrypt.client;
 
 import static java.util.Arrays.asList;
 
+import com.google.common.base.CharMatcher;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
+import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
@@ -17,9 +19,11 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Executors;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.pgpainless.PGPainless;
 import org.pgpainless.algorithm.DocumentSignatureType;
 import org.pgpainless.decryption_verification.ConsumerOptions;
@@ -29,6 +33,9 @@ import org.pgpainless.encryption_signing.EncryptionStream;
 import org.pgpainless.encryption_signing.ProducerOptions;
 import org.pgpainless.encryption_signing.SigningOptions;
 import org.pgpainless.key.protection.SecretKeyRingProtector;
+import org.pgpainless.util.ArmorUtils;
+import org.pgpainless.util.MultiMap;
+import org.pgpainless.util.Passphrase;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.client.state.PeerStateManager;
@@ -38,6 +45,9 @@ import rs.ltt.autocrypt.client.storage.ImmutableAccountState;
 import rs.ltt.autocrypt.client.storage.Storage;
 
 public abstract class AbstractAutocryptClient {
+
+    public static final ListeningExecutorService CRYPTO_EXECUTOR =
+            MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
     private final String userId;
     private final Storage storage;
@@ -335,5 +345,109 @@ public abstract class AbstractAutocryptClient {
                 Collections2.transform(
                         addresses,
                         address -> getRecommendation(address, isReplyToEncrypted, accountState)));
+    }
+
+    public ListenableFuture<String> exportSecretKey(final String passphrase) {
+        return Futures.transformAsync(
+                getAccountStateFuture(),
+                accountState -> exportSecretKey(accountState, passphrase),
+                CRYPTO_EXECUTOR);
+    }
+
+    private ListenableFuture<String> exportSecretKey(
+            final AccountState accountState, final String passphrase) {
+        Preconditions.checkArgument(
+                CharMatcher.inRange('0', '9').matchesAllOf(passphrase),
+                "Setup code must consist of 36 numeric characters");
+        Preconditions.checkArgument(
+                passphrase.length() == 36, "Setup code must consist of 36 numeric characters");
+        final PGPSecretKeyRing secretKey = PGPKeyRings.readSecretKeyRing(accountState);
+        final InputStream armoredSecretKeyStream;
+        try {
+            armoredSecretKeyStream =
+                    new ByteArrayInputStream(
+                            PGPainless.asciiArmor(secretKey).getBytes(StandardCharsets.UTF_8));
+        } catch (IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        final EncryptionOptions encryptionOptions =
+                EncryptionOptions.encryptCommunications()
+                        .addPassphrase(Passphrase.fromPassword(passphrase));
+        final ProducerOptions producerOptions =
+                ProducerOptions.encrypt(encryptionOptions).setAsciiArmor(false);
+        final EncryptionStream encryptionStream;
+        try {
+            encryptionStream =
+                    PGPainless.encryptAndOrSign()
+                            .onOutputStream(byteArrayOutputStream)
+                            .withOptions(producerOptions);
+        } catch (final PGPException | IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        try {
+            ByteStreams.copy(armoredSecretKeyStream, encryptionStream);
+            encryptionStream.flush();
+            encryptionStream.close();
+        } catch (final IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        final MultiMap<String, String> additionalHeader = new MultiMap<>();
+        additionalHeader.put("Passphrase-Format", "numeric9x4");
+        additionalHeader.put("Passphrase-Format", passphrase.substring(0, 2));
+        try {
+            return Futures.immediateFuture(
+                    ArmorUtils.toAsciiArmoredString(
+                            byteArrayOutputStream.toByteArray(), additionalHeader));
+        } catch (final IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+    }
+
+    public ListenableFuture<Void> importSecretKey(final String message, final String passphrase) {
+        final ByteArrayInputStream encryptedStream =
+                new ByteArrayInputStream(message.getBytes(StandardCharsets.UTF_8));
+        final ConsumerOptions consumerOptions =
+                new ConsumerOptions().addDecryptionPassphrase(Passphrase.fromPassword(passphrase));
+        try {
+            final ListenableFuture<DecryptionStream> streamFuture =
+                    Futures.immediateFuture(
+                            PGPainless.decryptAndOrVerify()
+                                    .onInputStream(encryptedStream)
+                                    .withOptions(consumerOptions));
+            return Futures.transformAsync(streamFuture, this::importSecretKey, CRYPTO_EXECUTOR);
+        } catch (PGPException | IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+    }
+
+    @NonNull
+    private ListenableFuture<Void> importSecretKey(final DecryptionStream decryptionStream)
+            throws IOException {
+        final ByteArrayOutputStream plaintextStream = new ByteArrayOutputStream();
+        ByteStreams.copy(decryptionStream, plaintextStream);
+        final PGPSecretKeyRing secretKey =
+                PGPainless.readKeyRing().secretKeyRing(plaintextStream.toString());
+        if (PGPKeyRings.isSuitableForEncryption(PGPainless.extractCertificate(secretKey))) {
+            return importSecretKey(secretKey);
+        } else {
+            return Futures.immediateFailedFuture(
+                    new IllegalArgumentException("PublicKey is not suitable for encryption"));
+        }
+    }
+
+    private ListenableFuture<Void> importSecretKey(final PGPSecretKeyRing secretKeyRing) {
+        return Futures.submit(
+                () -> {
+                    final AccountState accountState =
+                            ImmutableAccountState.builder()
+                                    .secretKey(PGPKeyRings.keyData(secretKeyRing))
+                                    .encryptionPreference(defaultSettings.getEncryptionPreference())
+                                    .isEnabled(defaultSettings.isEnabled())
+                                    .build();
+                    storeAccountState(accountState);
+                    return null;
+                },
+                ioExecutorService);
     }
 }
