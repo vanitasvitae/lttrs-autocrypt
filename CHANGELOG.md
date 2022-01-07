@@ -1,4 +1,8 @@
-### 0.2.9 (2022-01-06)
+### 0.2.1 (2022-01-07)
+
+* Use interruptible variant of ByteStreams.copy for mime transformation
+
+### 0.2.0 (2022-01-06)
 
 * Support decryption and Mime to JMAP Email conversion
 
