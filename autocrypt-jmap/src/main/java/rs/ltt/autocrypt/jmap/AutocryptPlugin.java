@@ -27,14 +27,12 @@ import rs.ltt.jmap.client.blob.Download;
 import rs.ltt.jmap.client.blob.OutputStreamUpload;
 import rs.ltt.jmap.client.blob.Progress;
 import rs.ltt.jmap.client.util.Closeables;
-import rs.ltt.jmap.common.entity.Downloadable;
-import rs.ltt.jmap.common.entity.Email;
-import rs.ltt.jmap.common.entity.EmailAddress;
-import rs.ltt.jmap.common.entity.Upload;
+import rs.ltt.jmap.common.entity.*;
 import rs.ltt.jmap.mua.plugin.EmailBuildStagePlugin;
 import rs.ltt.jmap.mua.plugin.EmailCacheStagePlugin;
 import rs.ltt.jmap.mua.plugin.EventCallback;
 import rs.ltt.jmap.mua.service.BinaryService;
+import rs.ltt.jmap.mua.service.EmailService;
 import rs.ltt.jmap.mua.service.MuaSession;
 import rs.ltt.jmap.mua.service.PluginService;
 
@@ -178,5 +176,24 @@ public class AutocryptPlugin extends PluginService.Plugin {
             throw new RuntimeException("Unable to process autocrypt headers", throwable);
         } catch (InterruptedException ignored) {
         }
+    }
+
+    public ListenableFuture<String> storeSetupMessage(final String passphrase) {
+        return Futures.transformAsync(
+                getAutocryptClient().exportSecretKey(passphrase),
+                setupMessage -> {
+                    final EmailAddress emailAddress = EmailAddress.builder().email(userId).build();
+                    final Email email =
+                            SetupMessage.ofAttachment(setupMessage).toBuilder()
+                                    .from(emailAddress)
+                                    .to(emailAddress)
+                                    .build();
+                    return storeSetupMessage(email);
+                },
+                MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<String> storeSetupMessage(final Email setupMessage) {
+        return getService(EmailService.class).store(setupMessage, Role.SENT);
     }
 }

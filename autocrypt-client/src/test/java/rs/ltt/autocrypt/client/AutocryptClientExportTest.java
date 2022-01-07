@@ -61,7 +61,7 @@ public class AutocryptClientExportTest {
                 autocryptClient.exportSecretKey("950319232307198078330983199875621111").get();
 
         assertThat(setupMessage, startsWith("-----BEGIN PGP MESSAGE-----"));
-        assertThat(setupMessage.trim(), containsString("Passphrase-Format: 95"));
+        assertThat(setupMessage.trim(), containsString("Passphrase-Begin: 95"));
         assertThat(setupMessage.trim(), endsWith("-----END PGP MESSAGE-----"));
 
         autocryptClient.importSecretKey(setupMessage, "950319232307198078330983199875621111").get();

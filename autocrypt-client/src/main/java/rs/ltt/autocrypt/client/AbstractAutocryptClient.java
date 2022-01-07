@@ -48,6 +48,8 @@ import rs.ltt.autocrypt.client.storage.Storage;
 @SuppressWarnings({"Guava", "UnstableApiUsage"})
 public abstract class AbstractAutocryptClient {
 
+    public static final int SETUP_CODE_LENGTH = 36;
+
     public static final ListeningExecutorService CRYPTO_EXECUTOR =
             MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
 
@@ -360,9 +362,10 @@ public abstract class AbstractAutocryptClient {
             final AccountState accountState, final String passphrase) {
         Preconditions.checkArgument(
                 CharMatcher.inRange('0', '9').matchesAllOf(passphrase),
-                "Setup code must consist of 36 numeric characters");
+                "Setup code must consist of " + SETUP_CODE_LENGTH + " numeric characters");
         Preconditions.checkArgument(
-                passphrase.length() == 36, "Setup code must consist of 36 numeric characters");
+                passphrase.length() == SETUP_CODE_LENGTH,
+                "Setup code must consist of " + SETUP_CODE_LENGTH + " numeric characters");
         final InputStream armoredSecretKeyStream;
         try {
             armoredSecretKeyStream = toAsciiArmorStream(accountState);
@@ -392,8 +395,8 @@ public abstract class AbstractAutocryptClient {
             return Futures.immediateFailedFuture(e);
         }
         final MultiMap<String, String> additionalHeader = new MultiMap<>();
-        additionalHeader.put("Passphrase-Format", "numeric9x4");
-        additionalHeader.put("Passphrase-Format", passphrase.substring(0, 2));
+        additionalHeader.put(Headers.PASSPHRASE_FORMAT, "numeric9x4");
+        additionalHeader.put(Headers.PASSPHRASE_BEGIN, passphrase.substring(0, 2));
         try {
             return Futures.immediateFuture(
                     ArmorUtils.toAsciiArmoredString(
