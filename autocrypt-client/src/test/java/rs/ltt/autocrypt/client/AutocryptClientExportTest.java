@@ -9,6 +9,7 @@ import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.header.EncryptionPreference;
 
 public class AutocryptClientExportTest {
 
@@ -54,6 +55,7 @@ public class AutocryptClientExportTest {
     public void exportAndReimport() throws ExecutionException, InterruptedException {
         final SimpleAutocryptClient autocryptClient =
                 SimpleAutocryptClient.builder().userId("alice@example.com").build();
+        autocryptClient.setEncryptionPreference(EncryptionPreference.MUTUAL).get();
         final byte[] initialPublicKey = autocryptClient.getAutocryptHeader().get().getKeyData();
         final String setupMessage =
                 autocryptClient.exportSecretKey("950319232307198078330983199875621111").get();
@@ -63,8 +65,10 @@ public class AutocryptClientExportTest {
         assertThat(setupMessage.trim(), endsWith("-----END PGP MESSAGE-----"));
 
         autocryptClient.importSecretKey(setupMessage, "950319232307198078330983199875621111").get();
-        final byte[] reimport = autocryptClient.getAutocryptHeader().get().getKeyData();
+        final AutocryptHeader header = autocryptClient.getAutocryptHeader().get();
+        final byte[] reimport = header.getKeyData();
         Assertions.assertArrayEquals(initialPublicKey, reimport);
+        Assertions.assertEquals(EncryptionPreference.MUTUAL, header.getEncryptionPreference());
     }
 
     @Test

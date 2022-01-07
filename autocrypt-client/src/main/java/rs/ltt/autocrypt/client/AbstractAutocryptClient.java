@@ -3,6 +3,7 @@ package rs.ltt.autocrypt.client;
 import static java.util.Arrays.asList;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Collections2;
 import com.google.common.io.ByteStreams;
@@ -20,6 +21,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Executors;
+import org.bouncycastle.bcpg.ArmoredInputStream;
 import org.bouncycastle.openpgp.PGPException;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
 import org.bouncycastle.openpgp.PGPSecretKeyRing;
@@ -33,17 +35,17 @@ import org.pgpainless.encryption_signing.EncryptionStream;
 import org.pgpainless.encryption_signing.ProducerOptions;
 import org.pgpainless.encryption_signing.SigningOptions;
 import org.pgpainless.key.protection.SecretKeyRingProtector;
-import org.pgpainless.util.ArmorUtils;
-import org.pgpainless.util.MultiMap;
-import org.pgpainless.util.Passphrase;
+import org.pgpainless.util.*;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
+import rs.ltt.autocrypt.client.header.Headers;
 import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
 import rs.ltt.autocrypt.client.storage.ImmutableAccountState;
 import rs.ltt.autocrypt.client.storage.Storage;
 
+@SuppressWarnings({"Guava", "UnstableApiUsage"})
 public abstract class AbstractAutocryptClient {
 
     public static final ListeningExecutorService CRYPTO_EXECUTOR =
@@ -361,12 +363,9 @@ public abstract class AbstractAutocryptClient {
                 "Setup code must consist of 36 numeric characters");
         Preconditions.checkArgument(
                 passphrase.length() == 36, "Setup code must consist of 36 numeric characters");
-        final PGPSecretKeyRing secretKey = PGPKeyRings.readSecretKeyRing(accountState);
         final InputStream armoredSecretKeyStream;
         try {
-            armoredSecretKeyStream =
-                    new ByteArrayInputStream(
-                            PGPainless.asciiArmor(secretKey).getBytes(StandardCharsets.UTF_8));
+            armoredSecretKeyStream = toAsciiArmorStream(accountState);
         } catch (IOException e) {
             return Futures.immediateFailedFuture(e);
         }
@@ -404,6 +403,19 @@ public abstract class AbstractAutocryptClient {
         }
     }
 
+    public InputStream toAsciiArmorStream(final AccountState accountState) throws IOException {
+        return new ByteArrayInputStream(
+                toAsciiArmor(accountState).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String toAsciiArmor(final AccountState accountState) throws IOException {
+        final MultiMap<String, String> header = new MultiMap<>();
+        header.put(
+                Headers.AUTOCRYPT_PREFER_ENCRYPT,
+                accountState.getEncryptionPreference().toString());
+        return ArmorUtils.toAsciiArmoredString(accountState.getSecretKey(), header);
+    }
+
     public ListenableFuture<Void> importSecretKey(final String message, final String passphrase) {
         final ByteArrayInputStream encryptedStream =
                 new ByteArrayInputStream(message.getBytes(StandardCharsets.UTF_8));
@@ -426,23 +438,42 @@ public abstract class AbstractAutocryptClient {
             throws IOException {
         final ByteArrayOutputStream plaintextStream = new ByteArrayOutputStream();
         ByteStreams.copy(decryptionStream, plaintextStream);
-        final PGPSecretKeyRing secretKey =
-                PGPainless.readKeyRing().secretKeyRing(plaintextStream.toString());
+        final byte[] plaintext = plaintextStream.toByteArray();
+        final PGPSecretKeyRing secretKey = PGPainless.readKeyRing().secretKeyRing(plaintext);
+        final Optional<EncryptionPreference> preferenceOptional =
+                getEncryptionPreference(plaintext);
         if (PGPKeyRings.isSuitableForEncryption(PGPainless.extractCertificate(secretKey))) {
-            return importSecretKey(secretKey);
+            return importSecretKey(
+                    secretKey, preferenceOptional.or(defaultSettings.getEncryptionPreference()));
         } else {
             return Futures.immediateFailedFuture(
                     new IllegalArgumentException("PublicKey is not suitable for encryption"));
         }
     }
 
-    private ListenableFuture<Void> importSecretKey(final PGPSecretKeyRing secretKeyRing) {
+    private Optional<EncryptionPreference> getEncryptionPreference(final byte[] asciiArmor)
+            throws IOException {
+        final ArmoredInputStream armoredInputStream =
+                ArmoredInputStreamFactory.get(new ByteArrayInputStream(asciiArmor));
+        final List<String> values =
+                ArmorUtils.getArmorHeaderValues(
+                        armoredInputStream, Headers.AUTOCRYPT_PREFER_ENCRYPT);
+        if (values.size() > 0) {
+            final String value = values.get(0);
+            return Optional.of(EncryptionPreference.of(value));
+        } else {
+            return Optional.absent();
+        }
+    }
+
+    private ListenableFuture<Void> importSecretKey(
+            final PGPSecretKeyRing secretKeyRing, final EncryptionPreference preference) {
         return Futures.submit(
                 () -> {
                     final AccountState accountState =
                             ImmutableAccountState.builder()
                                     .secretKey(PGPKeyRings.keyData(secretKeyRing))
-                                    .encryptionPreference(defaultSettings.getEncryptionPreference())
+                                    .encryptionPreference(preference)
                                     .isEnabled(defaultSettings.isEnabled())
                                     .build();
                     storeAccountState(accountState);
