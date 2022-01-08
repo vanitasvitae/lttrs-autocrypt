@@ -7,6 +7,7 @@ import java.security.SecureRandom;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 import rs.ltt.jmap.common.entity.EmailBodyValue;
+import rs.ltt.jmap.common.util.MediaTypes;
 
 public class SetupMessage {
 
@@ -33,7 +34,7 @@ public class SetupMessage {
         final EmailBodyValue bodyValue = EmailBodyValue.builder().value(BODY).build();
         final EmailBodyValue attachmentValue = EmailBodyValue.builder().value(message).build();
         final EmailBodyPart body =
-                EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).partId("1").build();
+                EmailBodyPart.builder().mediaType(MediaTypes.TEXT_PLAIN).partId("1").build();
         final EmailBodyPart attachment =
                 EmailBodyPart.builder()
                         .partId("2")

@@ -8,8 +8,10 @@ public class SetupMessageTest {
 
     @Test
     public void generatePassphrase() {
-        final String passphrase = SetupMessage.generateSetupCode();
-        Assertions.assertEquals(36, passphrase.length());
-        Assertions.assertTrue(CharMatcher.inRange('0', '9').matchesAllOf(passphrase));
+        for (int i = 0; i < 1000; ++i) {
+            final String passphrase = SetupMessage.generateSetupCode();
+            Assertions.assertEquals(36, passphrase.length());
+            Assertions.assertTrue(CharMatcher.inRange('0', '9').matchesAllOf(passphrase));
+        }
     }
 }

@@ -20,15 +20,12 @@ import rs.ltt.jmap.client.io.ByteStreams;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 import rs.ltt.jmap.common.entity.EmailBodyValue;
+import rs.ltt.jmap.common.util.MediaTypes;
 
 @SuppressWarnings("UnstableApiUsage")
 public class EmailContentHandler implements ContentHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(EmailContentHandler.class);
-
-    private static final MediaType TEXT_PLAIN = MediaType.create("text", "plain");
-    private static final MediaType TEXT_HTML = MediaType.create("text", "html");
-    private static final MediaType MULTIPART_ANY = MediaType.create("multipart", "*");
 
     private final Email.EmailBuilder emailBuilder = Email.builder();
     private final AttachmentRetriever attachmentRetriever;
@@ -121,7 +118,7 @@ public class EmailContentHandler implements ContentHandler {
     public void endMultipart() {
         final List<EmailBodyPart> alternatives = this.alternativesMap.get(this.multipartDepth);
         if (alternatives != null && !alternatives.isEmpty()) {
-            emailBuilder.textBody(pickAlternative(alternatives, TEXT_PLAIN));
+            emailBuilder.textBody(pickAlternative(alternatives, MediaTypes.TEXT_PLAIN));
         }
         this.multipartDepth--;
     }
@@ -149,7 +146,8 @@ public class EmailContentHandler implements ContentHandler {
         final EmailBodyPart emailBodyPart = bodyPartBuilder.build();
         final MediaType mediaType = emailBodyPart.getMediaType();
         final long bytesCopied;
-        if (mediaType != null && (mediaType.is(TEXT_PLAIN) || mediaType.is(TEXT_HTML))) {
+        if (mediaType != null
+                && (mediaType.is(MediaTypes.TEXT_PLAIN) || mediaType.is(MediaTypes.TEXT_HTML))) {
             final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             bytesCopied = ByteStreams.copy(inputStream, byteArrayOutputStream);
             final String body =
@@ -175,7 +173,7 @@ public class EmailContentHandler implements ContentHandler {
         final EmailBodyPart.EmailBodyPartBuilder builder = this.emailBodyPartBuilders.pollLast();
         final EmailBodyPart emailBodyPart = builder.build();
         final MediaType mediaType = emailBodyPart.getMediaType();
-        if (mediaType != null && mediaType.is(MULTIPART_ANY)) {
+        if (mediaType != null && mediaType.is(MediaTypes.MULTIPART_ANY)) {
             return;
         }
         if (isAttachment(emailBodyPart)) {
@@ -200,8 +198,8 @@ public class EmailContentHandler implements ContentHandler {
     }
 
     private static boolean isMediaTypeInline(final MediaType mediaType) {
-        return mediaType.is(TEXT_PLAIN)
-                || mediaType.is(TEXT_HTML)
+        return mediaType.is(MediaTypes.TEXT_PLAIN)
+                || mediaType.is(MediaTypes.TEXT_HTML)
                 || mediaType.is(MediaType.ANY_IMAGE_TYPE)
                 || mediaType.is(MediaType.ANY_AUDIO_TYPE)
                 || mediaType.is(MediaType.ANY_VIDEO_TYPE);
