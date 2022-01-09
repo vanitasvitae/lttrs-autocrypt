@@ -35,10 +35,14 @@ import org.pgpainless.encryption_signing.EncryptionStream;
 import org.pgpainless.encryption_signing.ProducerOptions;
 import org.pgpainless.encryption_signing.SigningOptions;
 import org.pgpainless.key.protection.SecretKeyRingProtector;
-import org.pgpainless.util.*;
+import org.pgpainless.util.ArmorUtils;
+import org.pgpainless.util.ArmoredInputStreamFactory;
+import org.pgpainless.util.MultiMap;
+import org.pgpainless.util.Passphrase;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
 import rs.ltt.autocrypt.client.header.Headers;
+import rs.ltt.autocrypt.client.header.PassphraseHint;
 import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
@@ -394,13 +398,12 @@ public abstract class AbstractAutocryptClient {
         } catch (final IOException e) {
             return Futures.immediateFailedFuture(e);
         }
-        final MultiMap<String, String> additionalHeader = new MultiMap<>();
-        additionalHeader.put(Headers.PASSPHRASE_FORMAT, "numeric9x4");
-        additionalHeader.put(Headers.PASSPHRASE_BEGIN, passphrase.substring(0, 2));
+        final PassphraseHint passphraseHint =
+                new PassphraseHint(passphrase.substring(0, 2), PassphraseHint.Format.NUMERIC9X4);
         try {
             return Futures.immediateFuture(
                     ArmorUtils.toAsciiArmoredString(
-                            byteArrayOutputStream.toByteArray(), additionalHeader));
+                            byteArrayOutputStream.toByteArray(), passphraseHint.asHeader()));
         } catch (final IOException e) {
             return Futures.immediateFailedFuture(e);
         }

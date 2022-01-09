@@ -1,14 +1,19 @@
 package rs.ltt.autocrypt.jmap;
 
+import com.google.common.base.Charsets;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import org.apache.james.mime4j.MimeException;
@@ -18,16 +23,27 @@ import org.pgpainless.decryption_verification.OpenPgpMetadata;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import rs.ltt.autocrypt.client.header.Headers;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.autocrypt.jmap.mime.AttachmentRetriever;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
 import rs.ltt.autocrypt.jmap.util.HttpCalls;
+import rs.ltt.jmap.client.JmapClient;
+import rs.ltt.jmap.client.JmapRequest;
+import rs.ltt.jmap.client.MethodResponses;
 import rs.ltt.jmap.client.blob.Download;
 import rs.ltt.jmap.client.blob.OutputStreamUpload;
 import rs.ltt.jmap.client.blob.Progress;
+import rs.ltt.jmap.client.io.ByteStreams;
 import rs.ltt.jmap.client.util.Closeables;
+import rs.ltt.jmap.common.Request;
 import rs.ltt.jmap.common.entity.*;
+import rs.ltt.jmap.common.entity.filter.EmailFilterCondition;
+import rs.ltt.jmap.common.entity.query.EmailQuery;
+import rs.ltt.jmap.common.method.call.email.GetEmailMethodCall;
+import rs.ltt.jmap.common.method.call.email.QueryEmailMethodCall;
+import rs.ltt.jmap.common.method.response.email.GetEmailMethodResponse;
 import rs.ltt.jmap.mua.plugin.EmailBuildStagePlugin;
 import rs.ltt.jmap.mua.plugin.EmailCacheStagePlugin;
 import rs.ltt.jmap.mua.plugin.EventCallback;
@@ -35,6 +51,7 @@ import rs.ltt.jmap.mua.service.BinaryService;
 import rs.ltt.jmap.mua.service.EmailService;
 import rs.ltt.jmap.mua.service.MuaSession;
 import rs.ltt.jmap.mua.service.PluginService;
+import rs.ltt.jmap.mua.util.StandardQueries;
 
 public class AutocryptPlugin extends PluginService.Plugin {
 
@@ -195,5 +212,96 @@ public class AutocryptPlugin extends PluginService.Plugin {
 
     private ListenableFuture<String> storeSetupMessage(final Email setupMessage) {
         return getService(EmailService.class).store(setupMessage, Role.SENT);
+    }
+
+    public ListenableFuture<Optional<String>> discoverSetupMessage() {
+        final EmailQuery query =
+                EmailQuery.of(
+                        EmailFilterCondition.builder()
+                                .header(
+                                        new String[] {
+                                            Headers.AUTOCRYPT_SETUP_MESSAGE, SetupMessage.VERSION_1
+                                        })
+                                .build(),
+                        StandardQueries.SORT_DEFAULT);
+        final JmapClient.MultiCall multiCall = muaSession.getJmapClient().newMultiCall();
+        final JmapRequest.Call queryCall =
+                multiCall.call(
+                        QueryEmailMethodCall.builder()
+                                .accountId(muaSession.getAccountId())
+                                .query(query)
+                                .limit(1L)
+                                .build());
+        final ListenableFuture<MethodResponses> emailMethodResponse =
+                multiCall
+                        .call(
+                                GetEmailMethodCall.builder()
+                                        .accountId(muaSession.getAccountId())
+                                        .idsReference(
+                                                queryCall.createResultReference(
+                                                        Request.Invocation.ResultReference.Path
+                                                                .IDS))
+                                        .build())
+                        .getMethodResponses();
+        multiCall.execute();
+        return Futures.transformAsync(
+                emailMethodResponse,
+                methodResponses ->
+                        processSetupMessageQuery(
+                                methodResponses.getMain(GetEmailMethodResponse.class)),
+                MoreExecutors.directExecutor());
+    }
+
+    @NonNull
+    private ListenableFuture<Optional<String>> processSetupMessageQuery(
+            final GetEmailMethodResponse emailMethodResponse) {
+        final Email[] emails = emailMethodResponse.getList();
+        if (emails == null || emails.length == 0) {
+            System.out.println("no emails found");
+            return Futures.immediateFuture(Optional.absent());
+        }
+        if (emails.length != 1) {
+            return Futures.immediateFailedFuture(
+                    new IllegalStateException(
+                            String.format(
+                                    "Got %d emails in response to query limited to 1",
+                                    emails.length)));
+        }
+        final Email email = emails[0];
+        final List<EmailBodyPart> attachments = email.getAttachments();
+        if (attachments == null || attachments.isEmpty()) {
+            System.out.println("no attachments");
+            LOGGER.warn("Setup Message found but e-mail did not have any attachments");
+            return Futures.immediateFuture(Optional.absent());
+        }
+        final Optional<EmailBodyPart> optionalSetupAttachment =
+                Iterables.tryFind(
+                        attachments,
+                        emailBodyPart -> {
+                            final MediaType mediaType = emailBodyPart.getMediaType();
+                            return mediaType != null
+                                    && SetupMessage.AUTOCRYPT_SETUP.is(
+                                            emailBodyPart.getMediaType());
+                        });
+        if (optionalSetupAttachment.isPresent()) {
+            final ListenableFuture<Download> downloadFuture =
+                    getService(BinaryService.class).download(optionalSetupAttachment.get());
+            return Futures.transformAsync(
+                    downloadFuture, this::retrieveSetupMessage, muaSession.getIoExecutorService());
+        } else {
+            LOGGER.warn("Setup Message had no attachment of type {}", SetupMessage.AUTOCRYPT_SETUP);
+            return Futures.immediateFuture(Optional.absent());
+        }
+    }
+
+    private ListenableFuture<Optional<String>> retrieveSetupMessage(final Download download) {
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        try {
+            ByteStreams.copy(download.getInputStream(), byteArrayOutputStream);
+        } catch (IOException e) {
+            return Futures.immediateFailedFuture(e);
+        }
+        return Futures.immediateFuture(
+                Optional.of(new String(byteArrayOutputStream.toByteArray(), Charsets.UTF_8)));
     }
 }

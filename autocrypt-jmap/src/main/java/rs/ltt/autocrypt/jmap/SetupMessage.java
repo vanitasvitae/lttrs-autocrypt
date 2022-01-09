@@ -11,6 +11,8 @@ import rs.ltt.jmap.common.util.MediaTypes;
 
 public class SetupMessage {
 
+    public static final String VERSION_1 = "v1";
+
     public static final MediaType AUTOCRYPT_SETUP =
             MediaType.create("application", "autocrypt-setup");
 
@@ -43,7 +45,7 @@ public class SetupMessage {
                         .name(FILENAME)
                         .build();
         return Email.builder()
-                .autocryptSetupMessage("v1")
+                .autocryptSetupMessage(VERSION_1)
                 .subject(SUBJECT)
                 .bodyValue("1", bodyValue)
                 .bodyValue("2", attachmentValue)
