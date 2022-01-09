@@ -2,9 +2,8 @@ package rs.ltt.autocrypt.client;
 
 import static java.util.Arrays.asList;
 
-import com.google.common.base.CharMatcher;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.Collections2;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.Futures;
@@ -39,10 +38,7 @@ import org.pgpainless.util.ArmorUtils;
 import org.pgpainless.util.ArmoredInputStreamFactory;
 import org.pgpainless.util.MultiMap;
 import org.pgpainless.util.Passphrase;
-import rs.ltt.autocrypt.client.header.AutocryptHeader;
-import rs.ltt.autocrypt.client.header.EncryptionPreference;
-import rs.ltt.autocrypt.client.header.Headers;
-import rs.ltt.autocrypt.client.header.PassphraseHint;
+import rs.ltt.autocrypt.client.header.*;
 import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
@@ -51,8 +47,6 @@ import rs.ltt.autocrypt.client.storage.Storage;
 
 @SuppressWarnings({"Guava", "UnstableApiUsage"})
 public abstract class AbstractAutocryptClient {
-
-    public static final int SETUP_CODE_LENGTH = 36;
 
     public static final ListeningExecutorService CRYPTO_EXECUTOR =
             MoreExecutors.listeningDecorator(Executors.newFixedThreadPool(2));
@@ -358,18 +352,13 @@ public abstract class AbstractAutocryptClient {
     public ListenableFuture<String> exportSecretKey(final String passphrase) {
         return Futures.transformAsync(
                 getAccountStateFuture(),
-                accountState -> exportSecretKey(accountState, passphrase),
+                accountState -> exportSecretKey(accountState, Strings.nullToEmpty(passphrase)),
                 CRYPTO_EXECUTOR);
     }
 
     private ListenableFuture<String> exportSecretKey(
             final AccountState accountState, final String passphrase) {
-        Preconditions.checkArgument(
-                CharMatcher.inRange('0', '9').matchesAllOf(passphrase),
-                "Setup code must consist of " + SETUP_CODE_LENGTH + " numeric characters");
-        Preconditions.checkArgument(
-                passphrase.length() == SETUP_CODE_LENGTH,
-                "Setup code must consist of " + SETUP_CODE_LENGTH + " numeric characters");
+        SetupCode.checkArgument(passphrase);
         final InputStream armoredSecretKeyStream;
         try {
             armoredSecretKeyStream = toAsciiArmorStream(accountState);
@@ -427,16 +416,14 @@ public abstract class AbstractAutocryptClient {
                 new ByteArrayInputStream(message.getBytes(StandardCharsets.UTF_8));
         final ConsumerOptions consumerOptions =
                 new ConsumerOptions().addDecryptionPassphrase(Passphrase.fromPassword(passphrase));
-        try {
-            final ListenableFuture<DecryptionStream> streamFuture =
-                    Futures.immediateFuture(
-                            PGPainless.decryptAndOrVerify()
-                                    .onInputStream(encryptedStream)
-                                    .withOptions(consumerOptions));
-            return Futures.transformAsync(streamFuture, this::importSecretKey, CRYPTO_EXECUTOR);
-        } catch (PGPException | IOException e) {
-            return Futures.immediateFailedFuture(e);
-        }
+        final ListenableFuture<DecryptionStream> streamFuture =
+                Futures.submit(
+                        () ->
+                                PGPainless.decryptAndOrVerify()
+                                        .onInputStream(encryptedStream)
+                                        .withOptions(consumerOptions),
+                        CRYPTO_EXECUTOR);
+        return Futures.transformAsync(streamFuture, this::importSecretKey, CRYPTO_EXECUTOR);
     }
 
     @NonNull

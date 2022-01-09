@@ -4,6 +4,7 @@ import com.google.common.base.Strings;
 import com.google.common.net.MediaType;
 import java.math.BigInteger;
 import java.security.SecureRandom;
+import rs.ltt.autocrypt.client.SetupCode;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 import rs.ltt.jmap.common.entity.EmailBodyValue;
@@ -59,8 +60,7 @@ public class SetupMessage {
         final byte[] bytes = new byte[16];
         secureRandom.nextBytes(bytes);
         final BigInteger bigInteger = new BigInteger(1, bytes);
-        final String random =
-                Strings.padStart(bigInteger.toString(), AutocryptClient.SETUP_CODE_LENGTH, '0');
-        return random.substring(0, AutocryptClient.SETUP_CODE_LENGTH);
+        final String random = Strings.padStart(bigInteger.toString(), SetupCode.LENGTH, '0');
+        return random.substring(0, SetupCode.LENGTH);
     }
 }

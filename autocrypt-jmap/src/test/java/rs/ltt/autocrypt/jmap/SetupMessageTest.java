@@ -6,6 +6,7 @@ import java.util.concurrent.ExecutionException;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import rs.ltt.autocrypt.client.SetupCode;
 import rs.ltt.autocrypt.client.header.PassphraseHint;
 import rs.ltt.jmap.mock.server.JmapDispatcher;
 import rs.ltt.jmap.mock.server.MockMailServer;
@@ -20,6 +21,7 @@ public class SetupMessageTest {
             final String passphrase = SetupMessage.generateSetupCode();
             Assertions.assertEquals(36, passphrase.length());
             Assertions.assertTrue(CharMatcher.inRange('0', '9').matchesAllOf(passphrase));
+            Assertions.assertTrue(SetupCode.isValid(passphrase));
         }
     }
 
