@@ -1,3 +1,7 @@
+### 0.3.0 (2022-01-10)
+
+* Add support for SetupMessages / key import+export
+
 ### 0.2.1 (2022-01-07)
 
 * Use interruptible variant of ByteStreams.copy for mime transformation
