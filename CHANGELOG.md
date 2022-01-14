@@ -1,3 +1,7 @@
+### 0.3.1 (2022-01-14)
+
+* Do not process Autocrypt Header in multipart/report emails
+
 ### 0.3.0 (2022-01-10)
 
 * Add support for SetupMessages / key import+export
