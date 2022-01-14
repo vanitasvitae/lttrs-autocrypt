@@ -5,6 +5,7 @@ import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.io.Closeables;
+import com.google.common.net.MediaType;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
@@ -16,6 +17,8 @@ import java.util.Collection;
 import java.util.List;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.pgpainless.encryption_signing.EncryptionStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.AbstractAutocryptClient;
 import rs.ltt.autocrypt.client.DefaultSettings;
 import rs.ltt.autocrypt.client.Recommendation;
@@ -27,10 +30,14 @@ import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailAddress;
+import rs.ltt.jmap.common.entity.EmailBodyPart;
 import rs.ltt.jmap.common.entity.IdentifiableEmailWithAddresses;
+import rs.ltt.jmap.common.util.MediaTypes;
 import rs.ltt.jmap.mua.util.EmailUtil;
 
 public class AutocryptClient extends AbstractAutocryptClient {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AutocryptClient.class);
 
     protected AutocryptClient(
             String userId,
@@ -153,6 +160,19 @@ public class AutocryptClient extends AbstractAutocryptClient {
             return Futures.immediateVoidFuture();
         }
         final String fromAddress = from.get(0).getEmail();
+
+        final EmailBodyPart bodyStructure = email.getBodyStructure();
+        final MediaType contentType = bodyStructure == null ? null : bodyStructure.getMediaType();
+        if (contentType == null) {
+            LOGGER.warn(
+                    "E-mail did not have Content-Type. 'bodyStructure' needs to be requested"
+                            + " explicitly");
+        } else if (contentType.is(MediaTypes.MULTIPART_REPORT)) {
+            LOGGER.debug(
+                    "E-mail was {}. Do not process AutocryptHeader", MediaTypes.MULTIPART_REPORT);
+            return Futures.immediateVoidFuture();
+        }
+
         final Instant effectiveDate = EmailUtil.getEffectiveDate(email);
         return this.processAutocryptHeaders(fromAddress, effectiveDate, email.getAutocrypt());
     }
