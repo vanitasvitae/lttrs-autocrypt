@@ -22,6 +22,8 @@ import org.apache.james.mime4j.message.DefaultMessageWriter;
 import org.apache.james.mime4j.message.MultipartBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.header.ImmutableAutocryptHeader;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
 import rs.ltt.jmap.common.entity.Attachment;
@@ -53,6 +55,27 @@ public class MimeTransformerTest {
                         "Hello World! Schöne Grüße");
         MimeTransformer.transform(ImmutableList.of(textBody), resultOutputStream);
         final String message = new String(resultOutputStream.toByteArray(), StandardCharsets.UTF_8);
+        assertThat(message, containsString("Hello World! Sch=C3=B6ne Gr=C3=BC=C3=9Fe"));
+        assertThat(message, containsString("Content-Transfer-Encoding: quoted-printable"));
+    }
+
+    @Test
+    public void simpleTextAndGossip() throws IOException {
+        final ByteArrayOutputStream resultOutputStream = new ByteArrayOutputStream();
+        final BodyPartTuple textBody =
+                BodyPartTuple.of(
+                        EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).build(),
+                        "Hello World! Schöne Grüße");
+        final List<AutocryptHeader> headers =
+                ImmutableList.of(
+                        ImmutableAutocryptHeader.builder()
+                                .address("alice@example.com")
+                                .keyData(new byte[] {0x01, 0x02})
+                                .build());
+        MimeTransformer.transform(ImmutableList.of(textBody), headers, resultOutputStream);
+        final String message = new String(resultOutputStream.toByteArray(), StandardCharsets.UTF_8);
+        assertThat(
+                message, containsString("Autocrypt-Gossip: addr=alice@example.com; keydata=AQI="));
         assertThat(message, containsString("Hello World! Sch=C3=B6ne Gr=C3=BC=C3=9Fe"));
         assertThat(message, containsString("Content-Transfer-Encoding: quoted-printable"));
     }

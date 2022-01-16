@@ -199,7 +199,7 @@ public abstract class AbstractAutocryptClient {
             final OutputStream outputStream,
             final AccountState accountState) {
         return Futures.transformAsync(
-                getRecommendations(recipients),
+                getRecommendations(recipients, false, accountState),
                 recommendations -> {
                     if (Recommendation.combine(recommendations) == Decision.DISABLE) {
                         throw new IllegalArgumentException(
@@ -210,6 +210,16 @@ public abstract class AbstractAutocryptClient {
                     return createEncryptionStream(outputStream, publicKeys, accountState);
                 },
                 MoreExecutors.directExecutor());
+    }
+
+    private ListenableFuture<List<Recommendation>> getRecommendations(
+            final Collection<String> addresses,
+            final boolean isReplyToEncrypted,
+            final AccountState accountState) {
+        return Futures.allAsList(
+                Collections2.transform(
+                        addresses,
+                        address -> getRecommendation(address, isReplyToEncrypted, accountState)));
     }
 
     private ListenableFuture<EncryptionStream> createEncryptionStream(
@@ -243,46 +253,6 @@ public abstract class AbstractAutocryptClient {
         } catch (final PGPException | IOException e) {
             return Futures.immediateFailedFuture(e);
         }
-    }
-
-    public ListenableFuture<Void> setEnabled(final boolean enabled) {
-        return Futures.transform(
-                getAccountStateFuture(),
-                accountState -> setEnabled(accountState, enabled),
-                ioExecutorService);
-    }
-
-    public Void setEnabled(final AccountState accountState, final boolean enabled) {
-        final AccountState freshAccountState =
-                ImmutableAccountState.builder().from(accountState).isEnabled(enabled).build();
-        storeAccountState(freshAccountState);
-        return null;
-    }
-
-    public ListenableFuture<Void> setEncryptionPreference(final EncryptionPreference preference) {
-        return Futures.transform(
-                getAccountStateFuture(),
-                accountState -> setEncryptionPreference(accountState, preference),
-                ioExecutorService);
-    }
-
-    private Void setEncryptionPreference(
-            final AccountState accountState, final EncryptionPreference preference) {
-        final AccountState freshAccountState =
-                ImmutableAccountState.builder()
-                        .from(accountState)
-                        .encryptionPreference(preference)
-                        .build();
-        storeAccountState(freshAccountState);
-        return null;
-    }
-
-    public ListenableFuture<Recommendation> getRecommendation(
-            final String address, final boolean isReplyToEncrypted) {
-        return Futures.transformAsync(
-                getAccountStateFuture(),
-                accountState -> getRecommendation(address, isReplyToEncrypted, accountState),
-                MoreExecutors.directExecutor());
     }
 
     private ListenableFuture<Recommendation> getRecommendation(
@@ -326,6 +296,68 @@ public abstract class AbstractAutocryptClient {
         return Recommendation.copyOf(preRecommendation);
     }
 
+    public ListenableFuture<Void> setEnabled(final boolean enabled) {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> setEnabled(accountState, enabled),
+                ioExecutorService);
+    }
+
+    public Void setEnabled(final AccountState accountState, final boolean enabled) {
+        final AccountState freshAccountState =
+                ImmutableAccountState.builder().from(accountState).isEnabled(enabled).build();
+        storeAccountState(freshAccountState);
+        return null;
+    }
+
+    public ListenableFuture<Void> setEncryptionPreference(final EncryptionPreference preference) {
+        return Futures.transform(
+                getAccountStateFuture(),
+                accountState -> setEncryptionPreference(accountState, preference),
+                ioExecutorService);
+    }
+
+    private Void setEncryptionPreference(
+            final AccountState accountState, final EncryptionPreference preference) {
+        final AccountState freshAccountState =
+                ImmutableAccountState.builder()
+                        .from(accountState)
+                        .encryptionPreference(preference)
+                        .build();
+        storeAccountState(freshAccountState);
+        return null;
+    }
+
+    public ListenableFuture<Recommendation> getRecommendation(
+            final String address, final boolean isReplyToEncrypted) {
+        return Futures.transformAsync(
+                getAccountStateFuture(),
+                accountState -> getRecommendation(address, isReplyToEncrypted, accountState),
+                MoreExecutors.directExecutor());
+    }
+
+    protected ListenableFuture<List<AutocryptHeader>> getGossipHeaders(
+            final Collection<String> peers) {
+        return Futures.allAsList(Collections2.transform(peers, this::getGossipHeader));
+    }
+
+    private ListenableFuture<AutocryptHeader> getGossipHeader(final String peer) {
+        return Futures.transform(
+                getPreliminaryRecommendation(peer),
+                pr -> {
+                    final PGPPublicKeyRing publicKey = pr == null ? null : pr.getPublicKey();
+                    if (pr == null) {
+                        throw new IllegalArgumentException(
+                                String.format("%s does not have a valid public key", peer));
+                    }
+                    return ImmutableAutocryptHeader.builder()
+                            .address(peer)
+                            .keyData(PGPKeyRings.keyData(publicKey))
+                            .build();
+                },
+                MoreExecutors.directExecutor());
+    }
+
     public ListenableFuture<List<Recommendation>> getRecommendations(
             final Collection<String> addresses) {
         return getRecommendations(addresses, false);
@@ -337,16 +369,6 @@ public abstract class AbstractAutocryptClient {
                 getAccountStateFuture(),
                 accountState -> getRecommendations(addresses, isReplyToEncrypted, accountState),
                 MoreExecutors.directExecutor());
-    }
-
-    private ListenableFuture<List<Recommendation>> getRecommendations(
-            final Collection<String> addresses,
-            final boolean isReplyToEncrypted,
-            final AccountState accountState) {
-        return Futures.allAsList(
-                Collections2.transform(
-                        addresses,
-                        address -> getRecommendation(address, isReplyToEncrypted, accountState)));
     }
 
     public ListenableFuture<String> exportSecretKey(final String passphrase) {

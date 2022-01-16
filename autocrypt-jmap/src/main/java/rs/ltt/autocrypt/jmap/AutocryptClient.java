@@ -35,6 +35,7 @@ import rs.ltt.jmap.common.entity.IdentifiableEmailWithAddresses;
 import rs.ltt.jmap.common.util.MediaTypes;
 import rs.ltt.jmap.mua.util.EmailUtil;
 
+@SuppressWarnings("UnstableApiUsage")
 public class AutocryptClient extends AbstractAutocryptClient {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AutocryptClient.class);
@@ -130,24 +131,30 @@ public class AutocryptClient extends AbstractAutocryptClient {
             final OutputStream outputStream) {
         final Collection<String> recipients =
                 Collections2.transform(addresses, EmailAddress::getEmail);
+        final ListenableFuture<List<AutocryptHeader>> gossipHeaderFuture =
+                getGossipHeaders(recipients);
         final ListenableFuture<EncryptionStream> encryptionStreamFuture =
                 encrypt(recipients, outputStream);
-        return Futures.transformAsync(
-                encryptionStreamFuture,
-                encryptionStream -> {
-                    final EncryptionResult encryptionResult =
-                            writeMimeMessage(bodyParts, encryptionStream);
-                    // unfortunately EncryptionStream doesn't close the underlying stream
-                    Closeables.close(outputStream, true);
-                    return Futures.immediateFuture(encryptionResult);
-                },
-                CRYPTO_EXECUTOR);
+        return Futures.whenAllSucceed(gossipHeaderFuture, encryptionStreamFuture)
+                .callAsync(
+                        () -> {
+                            final EncryptionStream encryptionStream = encryptionStreamFuture.get();
+                            final List<AutocryptHeader> gossipHeader = gossipHeaderFuture.get();
+                            final EncryptionResult encryptionResult =
+                                    writeMimeMessage(bodyParts, gossipHeader, encryptionStream);
+                            // unfortunately EncryptionStream doesn't close the underlying stream
+                            Closeables.close(outputStream, true);
+                            return Futures.immediateFuture(encryptionResult);
+                        },
+                        CRYPTO_EXECUTOR);
     }
 
     private EncryptionResult writeMimeMessage(
-            final Collection<BodyPartTuple> bodyParts, final EncryptionStream encryptionStream)
+            final Collection<BodyPartTuple> bodyParts,
+            final List<AutocryptHeader> gossipHeader,
+            final EncryptionStream encryptionStream)
             throws IOException {
-        MimeTransformer.transform(bodyParts, encryptionStream);
+        MimeTransformer.transform(bodyParts, gossipHeader, encryptionStream);
         encryptionStream.flush();
         encryptionStream.close();
         return encryptionStream.getResult();

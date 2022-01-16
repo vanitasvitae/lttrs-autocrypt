@@ -6,6 +6,8 @@ import com.google.common.collect.Iterables;
 import com.google.common.net.MediaType;
 import java.io.*;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import org.apache.james.mime4j.Charsets;
 import org.apache.james.mime4j.MimeException;
@@ -18,6 +20,9 @@ import org.apache.james.mime4j.message.MultipartBuilder;
 import org.apache.james.mime4j.parser.MimeStreamParser;
 import org.apache.james.mime4j.stream.MimeConfig;
 import org.apache.james.mime4j.stream.NameValuePair;
+import org.apache.james.mime4j.stream.RawField;
+import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.header.Headers;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 
@@ -26,16 +31,34 @@ public class MimeTransformer {
     public static void transform(
             final Collection<BodyPartTuple> bodyPartTuples, final OutputStream outputStream)
             throws IOException {
+        transform(bodyPartTuples, Collections.emptyList(), outputStream);
+    }
+
+    public static void transform(
+            final Collection<BodyPartTuple> bodyPartTuples,
+            final List<AutocryptHeader> gossipHeader,
+            final OutputStream outputStream)
+            throws IOException {
         final MessageWriter messageWriter = new DefaultMessageWriter();
-        final Message message = transform(bodyPartTuples);
+        final Message message = transform(bodyPartTuples, gossipHeader);
         messageWriter.writeMessage(message, outputStream);
     }
 
-    public static Message transform(final Collection<BodyPartTuple> bodyPartTuples) {
+    public static Message transform(
+            final Collection<BodyPartTuple> bodyPartTuples,
+            final List<AutocryptHeader> gossipHeader) {
         if (bodyPartTuples.isEmpty()) {
             throw new IllegalArgumentException("Unable to create message with no body parts");
         }
         final Message.Builder builder = Message.Builder.of();
+        for (final AutocryptHeader autocryptHeader : gossipHeader) {
+            if (autocryptHeader.getEncryptionPreference() != null) {
+                throw new IllegalArgumentException(
+                        "Gossip Headers SHOULD not include an encryption preference");
+            }
+            builder.addField(
+                    new RawField(Headers.AUTOCRYPT_GOSSIP, autocryptHeader.toHeaderValue()));
+        }
         if (bodyPartTuples.size() == 1) {
             final BodyPartTuple bodyPartTuple =
                     Objects.requireNonNull(Iterables.getOnlyElement(bodyPartTuples));
@@ -47,23 +70,7 @@ public class MimeTransformer {
             }
             builder.setBody(multipartBuilder.build());
         }
-
         return builder.build();
-    }
-
-    public static Email transform(
-            final InputStream inputStream,
-            final String blobId,
-            final AttachmentRetriever attachmentRetriever)
-            throws MimeException, IOException {
-        final MimeConfig mimeConfig = new MimeConfig.Builder().build();
-        final MimeStreamParser mimeStreamParser = new MimeStreamParser(mimeConfig);
-        mimeStreamParser.setContentDecoding(true);
-        final EmailContentHandler emailContentHandler =
-                new EmailContentHandler(blobId, attachmentRetriever);
-        mimeStreamParser.setContentHandler(emailContentHandler);
-        mimeStreamParser.parse(inputStream);
-        return emailContentHandler.buildEmail();
     }
 
     private static void build(AbstractEntityBuilder builder, final BodyPartTuple bodyPartTuple) {
@@ -129,5 +136,24 @@ public class MimeTransformer {
         return Collections2.transform(
                         parameters.entries(), e -> new NameValuePair(e.getKey(), e.getValue()))
                 .toArray(new NameValuePair[0]);
+    }
+
+    public static Message transform(final Collection<BodyPartTuple> bodyPartTuples) {
+        return transform(bodyPartTuples, Collections.emptyList());
+    }
+
+    public static Email transform(
+            final InputStream inputStream,
+            final String blobId,
+            final AttachmentRetriever attachmentRetriever)
+            throws MimeException, IOException {
+        final MimeConfig mimeConfig = new MimeConfig.Builder().build();
+        final MimeStreamParser mimeStreamParser = new MimeStreamParser(mimeConfig);
+        mimeStreamParser.setContentDecoding(true);
+        final EmailContentHandler emailContentHandler =
+                new EmailContentHandler(blobId, attachmentRetriever);
+        mimeStreamParser.setContentHandler(emailContentHandler);
+        mimeStreamParser.parse(inputStream);
+        return emailContentHandler.buildEmail();
     }
 }
