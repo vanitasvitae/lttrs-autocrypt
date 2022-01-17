@@ -107,7 +107,7 @@ public class EmailContentHandler implements ContentHandler {
                 try {
                     final AutocryptHeader autocryptHeader = AutocryptHeader.parse(value);
                     gossipRetriever.onAutocryptGossipHeader(autocryptHeader);
-                } catch (final IllegalArgumentException e) {
+                } catch (final IllegalArgumentException | IllegalStateException e) {
                     LOGGER.warn("Encountered invalid Autocrypt-Gossip", e);
                 }
                 break;

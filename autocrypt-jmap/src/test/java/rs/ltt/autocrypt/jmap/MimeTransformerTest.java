@@ -11,6 +11,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -20,10 +21,13 @@ import org.apache.james.mime4j.dom.MessageWriter;
 import org.apache.james.mime4j.message.BodyPartBuilder;
 import org.apache.james.mime4j.message.DefaultMessageWriter;
 import org.apache.james.mime4j.message.MultipartBuilder;
+import org.apache.james.mime4j.stream.RawField;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.ImmutableAutocryptHeader;
+import rs.ltt.autocrypt.client.state.GossipRetriever;
+import rs.ltt.autocrypt.client.state.GossipUpdate;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
 import rs.ltt.autocrypt.jmap.mime.MimeTransformer;
 import rs.ltt.jmap.common.entity.Attachment;
@@ -141,7 +145,8 @@ public class MimeTransformerTest {
                                     ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
                             return bytes;
-                        });
+                        },
+                        NoopGossipReceiver.INSTANCE);
         Assertions.assertEquals(1, attachments.size());
         Assertions.assertEquals(1, email.getAttachments().size());
         final Attachment attachment = email.getAttachments().get(0);
@@ -186,7 +191,8 @@ public class MimeTransformerTest {
                                     ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
                             return bytes;
-                        });
+                        },
+                        NoopGossipReceiver.INSTANCE);
         Assertions.assertEquals(0, attachments.size());
         Assertions.assertEquals(0, email.getAttachments().size());
         Assertions.assertEquals(1, email.getTextBody().size());
@@ -214,9 +220,61 @@ public class MimeTransformerTest {
                                     ByteStreams.copy(inputStream, attachmentOutputStream);
                             attachments.add(attachmentOutputStream.toByteArray());
                             return bytes;
-                        });
+                        },
+                        NoopGossipReceiver.INSTANCE);
         Assertions.assertEquals(0, attachments.size());
         Assertions.assertEquals(0, email.getAttachments().size());
         Assertions.assertEquals(1, email.getTextBody().size());
+    }
+
+    @Test
+    public void emailWithAutocryptGossip() throws IOException, MimeException {
+        final Message.Builder builder = Message.Builder.of();
+        builder.addField(new RawField("Autocrypt-Gossip", "addr=alice@example.com; keydata=AAo="));
+        builder.addField(new RawField("Autocrypt-Gossip", "addr=parse@failure keydata=AAo="));
+        final MultipartBuilder mixedMultipartBuilder = MultipartBuilder.create("mixed");
+        mixedMultipartBuilder.addBodyPart(
+                BodyPartBuilder.create()
+                        .setBody("Hello World", "plain", StandardCharsets.UTF_8)
+                        .build());
+        mixedMultipartBuilder.addBodyPart(
+                BodyPartBuilder.create()
+                        .setBody(BLACK_SQUARE_PNG, "image/png")
+                        .setContentTransferEncoding("base64")
+                        .setField(
+                                new RawField(
+                                        "Autocrypt-Gossip",
+                                        "addr=invalid@example.com; keydata=AAo="))
+                        .setContentDisposition("attachment", "black_square.png"));
+        builder.setBody(mixedMultipartBuilder);
+        final Message message = builder.build();
+        final MessageWriter messageWriter = new DefaultMessageWriter();
+        final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        messageWriter.writeMessage(message, byteArrayOutputStream);
+        final ByteArrayInputStream byteArrayInputStream =
+                new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+        final GossipUpdate.Builder gossipBuilder = GossipUpdate.builder(Instant.now());
+        final Email email =
+                MimeTransformer.transform(
+                        byteArrayInputStream,
+                        "test",
+                        (attachment, inputStream) -> 0L,
+                        gossipBuilder);
+        Assertions.assertEquals(1, email.getAttachments().size());
+        final List<GossipUpdate> gossipUpdates = gossipBuilder.build();
+        Assertions.assertEquals(1, gossipUpdates.size());
+        Assertions.assertEquals("alice@example.com", gossipUpdates.get(0).getFrom());
+    }
+
+    private static class NoopGossipReceiver implements GossipRetriever {
+
+        public static final GossipRetriever INSTANCE = new NoopGossipReceiver();
+
+        @Override
+        public void onAutocryptGossipHeader(final AutocryptHeader autocryptHeader) {
+            throw new IllegalStateException(
+                    NoopGossipReceiver.class.getSimpleName()
+                            + " did not expect to receive AutocryptHeader");
+        }
     }
 }

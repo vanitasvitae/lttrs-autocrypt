@@ -118,11 +118,6 @@ public class AutocryptPlugin extends PluginService.Plugin {
     }
 
     public ListenableFuture<Email> downloadAndDecrypt(
-            final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
-        return downloadAndDecrypt(downloadable, attachmentRetriever, null);
-    }
-
-    public ListenableFuture<Email> downloadAndDecrypt(
             final Downloadable downloadable,
             final AttachmentRetriever attachmentRetriever,
             final IdentifiableEmailWithAddressesAndTime originalEmail) {

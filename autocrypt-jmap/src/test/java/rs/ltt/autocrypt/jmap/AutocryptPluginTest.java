@@ -5,6 +5,7 @@ import com.google.common.io.ByteStreams;
 import com.google.common.net.MediaType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -162,6 +163,7 @@ public class AutocryptPluginTest {
         final Downloadable downloadable =
                 EncryptedBodyPart.getDownloadable("a85f2332-afc9-4a3a-b38f-45eecd81004a");
         final List<byte[]> attachments = new ArrayList<>();
+        final Email originalEmail = Email.builder().receivedAt(Instant.now()).build();
         final Email email =
                 mua.getPlugin(AutocryptPlugin.class)
                         .downloadAndDecrypt(
@@ -173,7 +175,8 @@ public class AutocryptPluginTest {
                                             ByteStreams.copy(inputStream, attachmentOutputStream);
                                     attachments.add(attachmentOutputStream.toByteArray());
                                     return bytes;
-                                })
+                                },
+                                originalEmail)
                         .get();
         Assertions.assertEquals(1, attachments.size());
         Assertions.assertEquals(1, email.getAttachments().size());

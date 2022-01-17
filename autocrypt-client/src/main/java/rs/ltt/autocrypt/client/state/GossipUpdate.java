@@ -7,6 +7,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.List;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 
 public class GossipUpdate extends AbstractAutocryptUpdate {
@@ -47,7 +48,7 @@ public class GossipUpdate extends AbstractAutocryptUpdate {
             return this;
         }
 
-        public Collection<GossipUpdate> build() {
+        public List<GossipUpdate> build() {
             final ImmutableList.Builder<GossipUpdate> updateBuilder = new ImmutableList.Builder<>();
             for (final Collection<GossipUpdate> updates : this.gossipUpdates.asMap().values()) {
                 if (Iterables.size(updates) == 1) {
