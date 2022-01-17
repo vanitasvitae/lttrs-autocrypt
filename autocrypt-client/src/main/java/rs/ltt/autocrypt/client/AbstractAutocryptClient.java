@@ -39,6 +39,7 @@ import org.pgpainless.util.ArmoredInputStreamFactory;
 import org.pgpainless.util.MultiMap;
 import org.pgpainless.util.Passphrase;
 import rs.ltt.autocrypt.client.header.*;
+import rs.ltt.autocrypt.client.state.GossipUpdate;
 import rs.ltt.autocrypt.client.state.PeerStateManager;
 import rs.ltt.autocrypt.client.state.PreRecommendation;
 import rs.ltt.autocrypt.client.storage.AccountState;
@@ -84,6 +85,13 @@ public abstract class AbstractAutocryptClient {
                 () ->
                         peerStateManager.processAutocryptHeaders(
                                 from, effectiveDate, autocryptHeaders),
+                ioExecutorService);
+    }
+
+    public ListenableFuture<Void> processGossipHeader(
+            final Collection<String> recipients, final Collection<GossipUpdate> gossipUpdates) {
+        return Futures.submit(
+                () -> peerStateManager.processGossipHeader(recipients, gossipUpdates),
                 ioExecutorService);
     }
 

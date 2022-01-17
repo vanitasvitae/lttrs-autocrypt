@@ -4,12 +4,16 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
 import org.bouncycastle.openpgp.PGPPublicKeyRing;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.Addresses;
 import rs.ltt.autocrypt.client.PGPKeyRings;
 import rs.ltt.autocrypt.client.storage.PeerState;
 import rs.ltt.autocrypt.client.storage.Storage;
 
 public class PeerStateManager {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PeerStateManager.class);
 
     private static final Duration AUTOCRYPT_HEADER_EXPIRY = Duration.ofDays(35);
 
@@ -41,6 +45,27 @@ public class PeerStateManager {
                         peerStateUpdate.getEffectiveDate(),
                         peerStateUpdate.getKeyData(),
                         peerStateUpdate.getEncryptionPreference());
+            }
+        }
+    }
+
+    public void processGossipHeader(
+            final Collection<String> recipients, final Collection<GossipUpdate> gossipUpdates) {
+        for (final GossipUpdate gossipUpdate : gossipUpdates) {
+            if (recipients.contains(gossipUpdate.getFrom())) {
+                final PGPPublicKeyRing publicKeyRing =
+                        PGPKeyRings.readPublicKeyRing(gossipUpdate.getKeyData());
+                if (PGPKeyRings.isSuitableForEncryption(publicKeyRing)) {
+                    storage.updateGossip(
+                            gossipUpdate.getFrom(),
+                            gossipUpdate.getEffectiveDate(),
+                            gossipUpdate.getKeyData());
+                }
+            } else {
+                LOGGER.warn(
+                        "{} did not appear in list of recipients {}",
+                        gossipUpdate.getFrom(),
+                        recipients);
             }
         }
     }

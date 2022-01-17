@@ -23,6 +23,7 @@ import org.apache.james.mime4j.stream.NameValuePair;
 import org.apache.james.mime4j.stream.RawField;
 import rs.ltt.autocrypt.client.header.AutocryptHeader;
 import rs.ltt.autocrypt.client.header.Headers;
+import rs.ltt.autocrypt.client.state.GossipRetriever;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
 
@@ -145,13 +146,14 @@ public class MimeTransformer {
     public static Email transform(
             final InputStream inputStream,
             final String blobId,
-            final AttachmentRetriever attachmentRetriever)
+            final AttachmentRetriever attachmentRetriever,
+            final GossipRetriever gossipRetriever)
             throws MimeException, IOException {
         final MimeConfig mimeConfig = new MimeConfig.Builder().build();
         final MimeStreamParser mimeStreamParser = new MimeStreamParser(mimeConfig);
         mimeStreamParser.setContentDecoding(true);
         final EmailContentHandler emailContentHandler =
-                new EmailContentHandler(blobId, attachmentRetriever);
+                new EmailContentHandler(blobId, attachmentRetriever, gossipRetriever);
         mimeStreamParser.setContentHandler(emailContentHandler);
         mimeStreamParser.parse(inputStream);
         return emailContentHandler.buildEmail();

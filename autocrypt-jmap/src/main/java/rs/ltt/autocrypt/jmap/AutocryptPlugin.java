@@ -4,6 +4,7 @@ import com.google.common.base.Charsets;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
+import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.net.MediaType;
@@ -13,6 +14,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
@@ -23,7 +25,9 @@ import org.pgpainless.decryption_verification.OpenPgpMetadata;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import rs.ltt.autocrypt.client.Addresses;
 import rs.ltt.autocrypt.client.header.Headers;
+import rs.ltt.autocrypt.client.state.GossipUpdate;
 import rs.ltt.autocrypt.client.storage.Storage;
 import rs.ltt.autocrypt.jmap.mime.AttachmentRetriever;
 import rs.ltt.autocrypt.jmap.mime.BodyPartTuple;
@@ -51,6 +55,7 @@ import rs.ltt.jmap.mua.service.BinaryService;
 import rs.ltt.jmap.mua.service.EmailService;
 import rs.ltt.jmap.mua.service.MuaSession;
 import rs.ltt.jmap.mua.service.PluginService;
+import rs.ltt.jmap.mua.util.EmailUtil;
 import rs.ltt.jmap.mua.util.StandardQueries;
 
 public class AutocryptPlugin extends PluginService.Plugin {
@@ -114,6 +119,13 @@ public class AutocryptPlugin extends PluginService.Plugin {
 
     public ListenableFuture<Email> downloadAndDecrypt(
             final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
+        return downloadAndDecrypt(downloadable, attachmentRetriever, null);
+    }
+
+    public ListenableFuture<Email> downloadAndDecrypt(
+            final Downloadable downloadable,
+            final AttachmentRetriever attachmentRetriever,
+            final IdentifiableEmailWithAddressesAndTime originalEmail) {
         final ListenableFuture<Download> downloadFuture =
                 getService(BinaryService.class).download(downloadable);
         return Futures.transformAsync(
@@ -122,6 +134,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
                         downloadAndDecrypt(
                                 downloadable.getBlobId(),
                                 attachmentRetriever,
+                                originalEmail,
                                 Objects.requireNonNull(download)),
                 MoreExecutors.directExecutor());
     }
@@ -129,13 +142,14 @@ public class AutocryptPlugin extends PluginService.Plugin {
     private ListenableFuture<Email> downloadAndDecrypt(
             final String blobId,
             final AttachmentRetriever attachmentRetriever,
+            final IdentifiableEmailWithAddressesAndTime originalEmail,
             final Download download) {
         final ListenableFuture<DecryptionStream> streamFuture =
                 getAutocryptClient().decrypt(download.getInputStream());
         final ListenableFuture<Email> emailFuture =
                 Futures.transformAsync(
                         streamFuture,
-                        ds -> this.parseMimeMessage(ds, blobId, attachmentRetriever),
+                        ds -> this.parseMimeMessage(ds, blobId, attachmentRetriever, originalEmail),
                         AutocryptClient.CRYPTO_EXECUTOR);
         HttpCalls.cancelCallOnCancel(emailFuture, download.getCall());
         return emailFuture;
@@ -145,10 +159,15 @@ public class AutocryptPlugin extends PluginService.Plugin {
     private ListenableFuture<Email> parseMimeMessage(
             final DecryptionStream decryptionStream,
             final String blobId,
-            final AttachmentRetriever attachmentRetriever) {
+            final AttachmentRetriever attachmentRetriever,
+            final IdentifiableEmailWithAddressesAndTime originalEmail) {
+        final GossipUpdate.Builder gossipReceiver =
+                GossipUpdate.builder(EmailUtil.getEffectiveDate(originalEmail));
         final Email email;
         try {
-            email = MimeTransformer.transform(decryptionStream, blobId, attachmentRetriever);
+            email =
+                    MimeTransformer.transform(
+                            decryptionStream, blobId, attachmentRetriever, gossipReceiver);
         } catch (final IOException | MimeException e) {
             return Futures.immediateFailedFuture(e);
         }
@@ -159,7 +178,26 @@ public class AutocryptPlugin extends PluginService.Plugin {
                 result.getRecipientKeyIds().size(),
                 result.getSymmetricKeyAlgorithm(),
                 result.getCompressionAlgorithm());
+        getAutocryptClient()
+                .processGossipHeader(getRecipients(originalEmail), gossipReceiver.build());
         return Futures.immediateFuture(email);
+    }
+
+    private static List<String> getRecipients(final IdentifiableEmailWithAddresses email) {
+        return new ImmutableList.Builder<String>()
+                .addAll(normalize(email.getTo()))
+                .addAll(normalize(email.getCc()))
+                .addAll(normalize(email.getReplyTo()))
+                .build();
+    }
+
+    private static Collection<String> normalize(final Collection<EmailAddress> addresses) {
+        if (addresses == null) {
+            return Collections.emptyList();
+        }
+        return Collections2.transform(
+                Collections2.filter(addresses, a -> Objects.nonNull(a.getEmail())),
+                a -> Addresses.normalize(a.getEmail()));
     }
 
     @Override

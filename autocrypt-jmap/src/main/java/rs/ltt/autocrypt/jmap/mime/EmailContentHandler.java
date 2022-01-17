@@ -16,6 +16,8 @@ import org.apache.james.mime4j.stream.Field;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import rs.ltt.autocrypt.client.header.Attribute;
+import rs.ltt.autocrypt.client.header.AutocryptHeader;
+import rs.ltt.autocrypt.client.state.GossipRetriever;
 import rs.ltt.jmap.client.io.ByteStreams;
 import rs.ltt.jmap.common.entity.Email;
 import rs.ltt.jmap.common.entity.EmailBodyPart;
@@ -29,6 +31,7 @@ public class EmailContentHandler implements ContentHandler {
 
     private final Email.EmailBuilder emailBuilder = Email.builder();
     private final AttachmentRetriever attachmentRetriever;
+    private final GossipRetriever gossipRetriever;
     private final byte[] blobIdSeed;
     private final Map<Integer, List<EmailBodyPart>> alternativesMap = new HashMap<>();
     private final ArrayDeque<EmailBodyPart.EmailBodyPartBuilder> emailBodyPartBuilders =
@@ -36,8 +39,12 @@ public class EmailContentHandler implements ContentHandler {
     private int partId = 0;
     private int multipartDepth = 0;
 
-    public EmailContentHandler(final String blobId, final AttachmentRetriever attachmentRetriever) {
+    public EmailContentHandler(
+            final String blobId,
+            final AttachmentRetriever attachmentRetriever,
+            final GossipRetriever gossipRetriever) {
         this.attachmentRetriever = attachmentRetriever;
+        this.gossipRetriever = gossipRetriever;
         this.blobIdSeed = blobId.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -89,6 +96,19 @@ public class EmailContentHandler implements ContentHandler {
                     } else if ("filename".equals(key)) {
                         bodyPartBuilder.name(attribute.getValue());
                     }
+                }
+                break;
+            case "autocrypt-gossip":
+                if (multipartDepth > 0) {
+                    LOGGER.warn(
+                            "Encountered Autocrypt-Gossip at depth {}. Ignoring", multipartDepth);
+                    break;
+                }
+                try {
+                    final AutocryptHeader autocryptHeader = AutocryptHeader.parse(value);
+                    gossipRetriever.onAutocryptGossipHeader(autocryptHeader);
+                } catch (final IllegalArgumentException e) {
+                    LOGGER.warn("Encountered invalid Autocrypt-Gossip", e);
                 }
                 break;
             default:

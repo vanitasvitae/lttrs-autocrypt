@@ -19,7 +19,7 @@ public class GossipUpdate extends AbstractAutocryptUpdate {
         return new Builder(effectiveDate);
     }
 
-    public static class Builder {
+    public static class Builder implements GossipRetriever {
 
         private final Instant effectiveDate;
         private final Multimap<String, GossipUpdate> gossipUpdates = ArrayListMultimap.create();
@@ -55,6 +55,15 @@ public class GossipUpdate extends AbstractAutocryptUpdate {
                 }
             }
             return updateBuilder.build();
+        }
+
+        @Override
+        public void onAutocryptGossipHeader(final AutocryptHeader autocryptHeader) {
+            if (autocryptHeader.getAddress() == null) {
+                throw new IllegalStateException(
+                        "Received illegal AutocryptHeader. Address MUST be set");
+            }
+            this.add(autocryptHeader);
         }
     }
 }
