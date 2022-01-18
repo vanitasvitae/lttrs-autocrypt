@@ -37,6 +37,18 @@ public interface Storage {
             final byte[] publicKey,
             final EncryptionPreference preference);
 
+    /**
+     * Steps 2-4 from the gossip update process. 2) If peers[gossip-addr].gossip_timestamp is more
+     * recent than the message’s effective date, then the update process terminates. 3) Set
+     * peers[gossip-addr].gossip_timestamp to the message’s effective date. 4) Set
+     * peers[gossip-addr].gossip_key to the value of the keydata attribute.
+     *
+     * @param address The peer’s address from the addr attribute
+     * @param effectiveData The effective date of the message (sending time or the time of receipt *
+     *     if that date is in the future)
+     * @param publicKey The key-data from the Autocrypt-Gossip header
+     * @return returns true if the gossip key has been updated
+     */
     boolean updateGossip(final String address, final Instant effectiveData, final byte[] publicKey);
 
     PeerState getPeerState(final String address);

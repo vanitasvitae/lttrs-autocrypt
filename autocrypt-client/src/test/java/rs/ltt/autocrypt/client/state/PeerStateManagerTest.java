@@ -3,7 +3,9 @@ package rs.ltt.autocrypt.client.state;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
+import java.util.List;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import rs.ltt.autocrypt.client.Decision;
 import rs.ltt.autocrypt.client.header.EncryptionPreference;
@@ -17,7 +19,6 @@ public class PeerStateManagerTest {
     private static final Instant EFFECTIVE_DATE_UPDATE = Instant.ofEpochSecond(1_600_000_000);
     private static final Instant EFFECTIVE_DATE_EARLIER_UPDATE =
             Instant.ofEpochSecond(1_550_000_000);
-
     private static final String EXAMPLE_HEADER =
             "addr=test@example.com; prefer-encrypt=nopreference; keydata=mDMEYayg9BYJKwYBBAHa\n"
                 + "Rw8BAQdAXNE+WhE4MzTK8UYL9BPvXa4vvpTi91kyePuDsp3Zl660HFRlc3QgVGVzdCA8dGVzdEBleGFt\n"
@@ -31,12 +32,17 @@ public class PeerStateManagerTest {
                 + "XyAEGRYKAAYFAmGsoPQACgkQEEFKC1yIxmuFRAD+OHKaq12Jj+OJokJiF8CDIe1NrpwdpOTYyN47+V3U\n"
                 + "+5QBAMl07HdfYIXR5r5SaEQOgqLqtu5JnXL5xGv26DcGOXkNAAoJENm2M22zC8F9IiEA/RlT+sIaGbwq\n"
                 + "KsAFDSqpRX5VR1/QzyfafS9qWfL93qyMAQCDwKyemcwRo2m7/dJ8b+oHQAFnhmp/nZyXeBB1xdCACA==";
+    private Storage storage;
+    private PeerStateManager peerStateManager;
+
+    @BeforeEach
+    public void setupPeerStateManager() {
+        this.storage = new InMemoryStorage();
+        this.peerStateManager = new PeerStateManager(storage);
+    }
 
     @Test
     public void processHeader() {
-        final Storage storage = new InMemoryStorage();
-        final PeerStateManager peerStateManager = new PeerStateManager(storage);
-
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.singleton(EXAMPLE_HEADER));
         final PeerState peerState = storage.getPeerState("test@example.com");
@@ -50,9 +56,6 @@ public class PeerStateManagerTest {
 
     @Test
     public void processEmptyHeader() {
-        final Storage storage = new InMemoryStorage();
-        final PeerStateManager peerStateManager = new PeerStateManager(storage);
-
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.emptyList());
         final PeerState peerState = storage.getPeerState("test@example.com");
@@ -64,9 +67,6 @@ public class PeerStateManagerTest {
 
     @Test
     public void processHeaderAndUpdate() {
-        final Storage storage = new InMemoryStorage();
-        final PeerStateManager peerStateManager = new PeerStateManager(storage);
-
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.singleton(EXAMPLE_HEADER));
 
@@ -86,9 +86,27 @@ public class PeerStateManagerTest {
     }
 
     @Test
-    public void preliminaryRecommendationAvailable() {
-        final PeerStateManager peerStateManager = new PeerStateManager(new InMemoryStorage());
+    public void processGossip() {
+        final List<GossipUpdate> updates =
+                GossipUpdate.builder(Instant.now()).add(EXAMPLE_HEADER).build();
+        peerStateManager.processGossipHeader(Collections.singleton("test@example.com"), updates);
+        Assertions.assertEquals(
+                Decision.DISCOURAGE,
+                peerStateManager.getPreliminaryRecommendation("test@example.com").getDecision());
+    }
 
+    @Test
+    public void processGossipNotInRecipients() {
+        final List<GossipUpdate> updates =
+                GossipUpdate.builder(Instant.now()).add(EXAMPLE_HEADER).build();
+        peerStateManager.processGossipHeader(Collections.singleton("alice@example.com"), updates);
+        Assertions.assertEquals(
+                Decision.DISABLE,
+                peerStateManager.getPreliminaryRecommendation("test@example.com").getDecision());
+    }
+
+    @Test
+    public void preliminaryRecommendationAvailable() {
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.singleton(EXAMPLE_HEADER));
 
@@ -99,8 +117,6 @@ public class PeerStateManagerTest {
 
     @Test
     public void preliminaryRecommendationDiscourage() {
-        final PeerStateManager peerStateManager = new PeerStateManager(new InMemoryStorage());
-
         peerStateManager.processAutocryptHeaders(
                 "test@example.com", EFFECTIVE_DATE_INITIAL, Collections.singleton(EXAMPLE_HEADER));
 
@@ -116,8 +132,6 @@ public class PeerStateManagerTest {
 
     @Test
     public void preliminaryRecommendationDisabled() {
-        final PeerStateManager peerStateManager = new PeerStateManager(new InMemoryStorage());
-
         Assertions.assertEquals(
                 Decision.DISABLE,
                 peerStateManager.getPreliminaryRecommendation("nobody@example.com").getDecision());

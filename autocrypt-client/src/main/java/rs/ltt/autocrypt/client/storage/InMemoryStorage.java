@@ -39,8 +39,17 @@ public class InMemoryStorage implements Storage {
 
     @Override
     public boolean updateGossip(
-            final String address, final Instant effectiveData, final byte[] publicKey) {
-        return false;
+            final String address, final Instant effectiveDate, final byte[] publicKey) {
+        final PeerState currentPeerState = peers.get(address);
+        if (currentPeerState != null && effectiveDate.isBefore(currentPeerState.gossipTimestamp)) {
+            return false;
+        }
+        if (currentPeerState == null) {
+            peers.put(address, PeerState.freshGossip(effectiveDate, publicKey));
+        } else {
+            peers.put(address, currentPeerState.updateGossip(effectiveDate, publicKey));
+        }
+        return true;
     }
 
     @Override
@@ -63,32 +72,76 @@ public class InMemoryStorage implements Storage {
         private final Instant autocryptTimestamp;
         private final byte[] publicKey;
         private final EncryptionPreference encryptionPreference;
+        private final Instant gossipTimestamp;
+        private final byte[] gossipKey;
 
         private PeerState(
                 Instant lastSeen,
                 Instant autocryptTimestamp,
                 byte[] publicKey,
-                EncryptionPreference encryptionPreference) {
+                EncryptionPreference encryptionPreference,
+                Instant gossipTimestamp,
+                byte[] gossipKey) {
             this.lastSeen = lastSeen;
             this.autocryptTimestamp = autocryptTimestamp;
             this.publicKey = publicKey;
             this.encryptionPreference = encryptionPreference;
+            this.gossipTimestamp = gossipTimestamp;
+            this.gossipKey = gossipKey;
         }
 
         private static PeerState fresh(final Instant lastSeen) {
-            return new PeerState(lastSeen, Instant.EPOCH, null, EncryptionPreference.NO_PREFERENCE);
+            return new PeerState(
+                    lastSeen,
+                    Instant.EPOCH,
+                    null,
+                    EncryptionPreference.NO_PREFERENCE,
+                    Instant.EPOCH,
+                    null);
+        }
+
+        private static PeerState freshGossip(
+                final Instant gossipTimestamp, final byte[] publicKey) {
+            return new PeerState(
+                    Instant.EPOCH,
+                    Instant.EPOCH,
+                    null,
+                    EncryptionPreference.NO_PREFERENCE,
+                    gossipTimestamp,
+                    publicKey);
         }
 
         public PeerState updateLastSeen(final Instant lastSeen) {
             return new PeerState(
-                    lastSeen, this.autocryptTimestamp, this.publicKey, this.encryptionPreference);
+                    lastSeen,
+                    this.autocryptTimestamp,
+                    this.publicKey,
+                    this.encryptionPreference,
+                    this.gossipTimestamp,
+                    this.gossipKey);
         }
 
         public PeerState updateAutocrypt(
                 final Instant autocryptTimestamp,
                 final byte[] publicKey,
                 final EncryptionPreference preference) {
-            return new PeerState(this.lastSeen, autocryptTimestamp, publicKey, preference);
+            return new PeerState(
+                    this.lastSeen,
+                    autocryptTimestamp,
+                    publicKey,
+                    preference,
+                    this.gossipTimestamp,
+                    this.gossipKey);
+        }
+
+        public PeerState updateGossip(final Instant gossipTimestamp, final byte[] publicKey) {
+            return new PeerState(
+                    this.lastSeen,
+                    this.autocryptTimestamp,
+                    this.publicKey,
+                    this.encryptionPreference,
+                    gossipTimestamp,
+                    publicKey);
         }
 
         @Override
@@ -103,7 +156,7 @@ public class InMemoryStorage implements Storage {
 
         @Override
         public Instant getGossipTimestamp() {
-            return null;
+            return this.gossipTimestamp;
         }
 
         @Override
@@ -113,7 +166,7 @@ public class InMemoryStorage implements Storage {
 
         @Override
         public byte[] getGossipKey() {
-            return null;
+            return this.gossipKey;
         }
 
         @Override

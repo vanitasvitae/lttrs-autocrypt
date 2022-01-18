@@ -88,7 +88,7 @@ public abstract class AbstractAutocryptClient {
                 ioExecutorService);
     }
 
-    public ListenableFuture<Void> processGossipHeader(
+    public ListenableFuture<Void> processGossipUpdates(
             final Collection<String> recipients, final Collection<GossipUpdate> gossipUpdates) {
         return Futures.submit(
                 () -> peerStateManager.processGossipHeader(recipients, gossipUpdates),

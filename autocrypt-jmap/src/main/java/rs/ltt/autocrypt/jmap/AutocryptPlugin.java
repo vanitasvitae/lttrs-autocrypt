@@ -173,9 +173,10 @@ public class AutocryptPlugin extends PluginService.Plugin {
                 result.getRecipientKeyIds().size(),
                 result.getSymmetricKeyAlgorithm(),
                 result.getCompressionAlgorithm());
-        getAutocryptClient()
-                .processGossipHeader(getRecipients(originalEmail), gossipReceiver.build());
-        return Futures.immediateFuture(email);
+        final ListenableFuture<Void> future =
+                getAutocryptClient()
+                        .processGossipUpdates(getRecipients(originalEmail), gossipReceiver.build());
+        return Futures.transform(future, unused -> email, MoreExecutors.directExecutor());
     }
 
     private static List<String> getRecipients(final IdentifiableEmailWithAddresses email) {
