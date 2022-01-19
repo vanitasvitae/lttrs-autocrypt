@@ -1,3 +1,7 @@
+### 0.4.0 (2022-01-19)
+
+* Add support for Autocrypt-Gossip
+
 ### 0.3.1 (2022-01-14)
 
 * Do not process Autocrypt Header in multipart/report emails
