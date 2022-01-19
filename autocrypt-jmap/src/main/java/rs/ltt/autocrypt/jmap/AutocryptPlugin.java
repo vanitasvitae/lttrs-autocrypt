@@ -13,6 +13,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -61,6 +62,9 @@ import rs.ltt.jmap.mua.util.StandardQueries;
 public class AutocryptPlugin extends PluginService.Plugin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AutocryptPlugin.class);
+
+    private static final Email EMTPTY_EMAIL_NO_RECIPIENTS =
+            Email.builder().receivedAt(Instant.EPOCH).build();
 
     private final String userId;
     private final Storage storage;
@@ -115,6 +119,12 @@ public class AutocryptPlugin extends PluginService.Plugin {
             throw new IllegalStateException("Plugin has not been installed yet");
         }
         return autocryptClient;
+    }
+
+    public ListenableFuture<Email> downloadAndDecrypt(
+            final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
+        //this essentially disables Gossip parsing because this email has no recipients
+        return downloadAndDecrypt(downloadable, attachmentRetriever, EMTPTY_EMAIL_NO_RECIPIENTS);
     }
 
     public ListenableFuture<Email> downloadAndDecrypt(

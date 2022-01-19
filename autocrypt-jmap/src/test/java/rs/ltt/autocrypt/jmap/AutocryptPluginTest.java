@@ -229,10 +229,9 @@ public class AutocryptPluginTest {
         final Downloadable downloadable =
                 EncryptedBodyPart.getDownloadable("a85f2332-afc9-4a3a-b38f-45eecd81004a");
         final InMemoryAttachmentRetriever attachmentRetriever = new InMemoryAttachmentRetriever();
-        final Email originalEmail = Email.builder().receivedAt(Instant.now()).build();
         final Email email =
                 mua.getPlugin(AutocryptPlugin.class)
-                        .downloadAndDecrypt(downloadable, attachmentRetriever, originalEmail)
+                        .downloadAndDecrypt(downloadable, attachmentRetriever)
                         .get();
         Assertions.assertEquals(1, attachmentRetriever.attachments.size());
         Assertions.assertEquals(1, email.getAttachments().size());
