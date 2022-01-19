@@ -123,7 +123,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
 
     public ListenableFuture<Email> downloadAndDecrypt(
             final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
-        //this essentially disables Gossip parsing because this email has no recipients
+        // this essentially disables Gossip parsing because this email has no recipients
         return downloadAndDecrypt(downloadable, attachmentRetriever, EMTPTY_EMAIL_NO_RECIPIENTS);
     }
 
