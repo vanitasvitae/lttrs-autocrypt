@@ -15,6 +15,7 @@ import java.io.OutputStream;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import org.pgpainless.encryption_signing.EncryptionResult;
 import org.pgpainless.encryption_signing.EncryptionStream;
 import org.slf4j.Logger;
@@ -163,10 +164,15 @@ public class AutocryptClient extends AbstractAutocryptClient {
     public ListenableFuture<Void> processAutocryptHeader(final Email email) {
         final List<String> autocryptHeaders = email.getAutocrypt();
         final List<EmailAddress> from = email.getFrom();
-        if (autocryptHeaders == null || from.size() != 1) {
+        if (autocryptHeaders == null || from == null || from.size() != 1) {
             return Futures.immediateVoidFuture();
         }
-        final String fromAddress = from.get(0).getEmail();
+        final String fromAddress =
+                Objects.requireNonNull(Iterables.getOnlyElement(from)).getEmail();
+
+        if (fromAddress == null) {
+            return Futures.immediateVoidFuture();
+        }
 
         final EmailBodyPart bodyStructure = email.getBodyStructure();
         final MediaType contentType = bodyStructure == null ? null : bodyStructure.getMediaType();

@@ -191,4 +191,23 @@ public class AutocryptClientTest {
         assertThat(message, startsWith("-----BEGIN PGP MESSAGE-----"));
         assertThat(message.trim(), endsWith("-----END PGP MESSAGE-----"));
     }
+
+    @Test
+    public void nullFrom() throws ExecutionException, InterruptedException {
+        final AutocryptClient autocryptClient =
+                AutocryptClient.builder().userId("alice@example.com").build();
+        autocryptClient.processAutocryptHeader(Email.builder().build()).get();
+    }
+
+    @Test
+    public void nullFromAddress() throws ExecutionException, InterruptedException {
+        final AutocryptClient autocryptClient =
+                AutocryptClient.builder().userId("alice@example.com").build();
+        autocryptClient
+                .processAutocryptHeader(
+                        Email.builder()
+                                .from(EmailAddress.builder().name("invalid").build())
+                                .build())
+                .get();
+    }
 }
