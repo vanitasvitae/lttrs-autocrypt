@@ -187,7 +187,7 @@ public class AutocryptClient extends AbstractAutocryptClient {
         }
 
         final Instant effectiveDate = EmailUtil.getEffectiveDate(email);
-        return this.processAutocryptHeaders(fromAddress, effectiveDate, email.getAutocrypt());
+        return this.processAutocryptHeaders(fromAddress, effectiveDate, autocryptHeaders);
     }
 
     public static class Builder {
