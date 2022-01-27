@@ -1,3 +1,7 @@
+### 0.4.1 (2022-01-27)
+
+* Fix NPE in Autocrypt Plugin if no From address has been set
+
 ### 0.4.0 (2022-01-19)
 
 * Add support for Autocrypt-Gossip
