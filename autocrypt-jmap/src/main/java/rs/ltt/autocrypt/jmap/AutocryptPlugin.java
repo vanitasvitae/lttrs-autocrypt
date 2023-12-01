@@ -63,7 +63,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AutocryptPlugin.class);
 
-    private static final Email EMTPTY_EMAIL_NO_RECIPIENTS =
+    private static final Email EMPTY_EMAIL_NO_RECIPIENTS =
             Email.builder().receivedAt(Instant.EPOCH).build();
 
     private final String userId;
@@ -124,7 +124,7 @@ public class AutocryptPlugin extends PluginService.Plugin {
     public ListenableFuture<Email> downloadAndDecrypt(
             final Downloadable downloadable, final AttachmentRetriever attachmentRetriever) {
         // this essentially disables Gossip parsing because this email has no recipients
-        return downloadAndDecrypt(downloadable, attachmentRetriever, EMTPTY_EMAIL_NO_RECIPIENTS);
+        return downloadAndDecrypt(downloadable, attachmentRetriever, EMPTY_EMAIL_NO_RECIPIENTS);
     }
 
     public ListenableFuture<Email> downloadAndDecrypt(

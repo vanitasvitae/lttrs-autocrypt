@@ -282,6 +282,7 @@ public class SimpleAutocryptClientTest {
         try (final DecryptionStream decryptionStream =
                 bobClient.decrypt(encryptedInputStream).get()) {
             ByteStreams.copy(decryptionStream, resultStream);
+            Assertions.assertEquals(-1, decryptionStream.read());
         }
 
         Assertions.assertEquals("Hello World!", resultStream.toString());

@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.net.MediaType;
 import java.io.*;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -109,6 +110,11 @@ public class MimeTransformer {
             @Override
             public String getMimeCharset() {
                 return Charsets.UTF_8.name();
+            }
+
+            @Override
+            public Charset getCharset() {
+                return Charsets.UTF_8;
             }
 
             @Override

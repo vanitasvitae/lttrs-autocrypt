@@ -50,16 +50,27 @@
         </snapshotRepository>
     </distributionManagement>
 
+    <!-- dependency versions -->
+    <properties>
+        <jmap.version>0.8.15</jmap.version>
+        <immutables.version>2.9.2</immutables.version>
+        <guava.version>31.0.1-jre</guava.version>
+        <junit.jupiter.version>5.10.1</junit.jupiter.version>
+        <junit.platform.version>1.10.1</junit.platform.version>
+        <okhttp.version>4.12.0</okhttp.version>
+        <mime4j.version>0.8.9</mime4j.version>
+        <pgpainless.version>1.6.4</pgpainless.version>
+    </properties>
+
     <build>
         <plugins>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.17.2</version>
+                <version>2.40.0</version>
                 <configuration>
                     <java>
                         <googleJavaFormat>
-                            <version>1.8</version>
                             <style>AOSP</style>
                             <reflowLongStrings>true</reflowLongStrings>
                         </googleJavaFormat>
@@ -165,5 +176,4 @@
             </plugin>
         </plugins>
     </build>
-
 </project>

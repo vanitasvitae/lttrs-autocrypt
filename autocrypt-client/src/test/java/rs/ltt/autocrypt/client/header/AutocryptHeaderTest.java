@@ -11,6 +11,7 @@ import org.bouncycastle.openpgp.PGPSecretKeyRing;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.pgpainless.PGPainless;
+import org.pgpainless.util.Passphrase;
 
 public class AutocryptHeaderTest {
 
@@ -104,7 +105,9 @@ public class AutocryptHeaderTest {
     public void createFromKey()
             throws PGPException, InvalidAlgorithmParameterException, NoSuchAlgorithmException {
         final PGPSecretKeyRing secretKey =
-                PGPainless.generateKeyRing().modernKeyRing("Test Test <test@example.com>", null);
+                PGPainless.generateKeyRing()
+                        .modernKeyRing(
+                                "Test Test <test@example.com>", Passphrase.emptyPassphrase());
         final AutocryptHeader header =
                 AutocryptHeader.of(secretKey, EncryptionPreference.NO_PREFERENCE);
         final String headerValue = header.toHeaderValue();

@@ -45,9 +45,7 @@ public class MimeTransformerTest {
     public void emptyBodyParts() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> {
-                    MimeTransformer.transform(Collections.emptyList());
-                });
+                () -> MimeTransformer.transform(Collections.emptyList()));
     }
 
     @Test
@@ -58,7 +56,7 @@ public class MimeTransformerTest {
                         EmailBodyPart.builder().mediaType(MediaType.PLAIN_TEXT_UTF_8).build(),
                         "Hello World! Schöne Grüße");
         MimeTransformer.transform(ImmutableList.of(textBody), resultOutputStream);
-        final String message = new String(resultOutputStream.toByteArray(), StandardCharsets.UTF_8);
+        final String message = resultOutputStream.toString(StandardCharsets.UTF_8);
         assertThat(message, containsString("Hello World! Sch=C3=B6ne Gr=C3=BC=C3=9Fe"));
         assertThat(message, containsString("Content-Transfer-Encoding: quoted-printable"));
     }

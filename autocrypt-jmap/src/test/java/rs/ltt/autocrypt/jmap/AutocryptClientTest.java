@@ -186,7 +186,7 @@ public class AutocryptClientTest {
 
         Assertions.assertEquals(2, result.getRecipients().size());
 
-        final String message = new String(resultOutputStream.toByteArray(), StandardCharsets.UTF_8);
+        final String message = resultOutputStream.toString(StandardCharsets.UTF_8);
 
         assertThat(message, startsWith("-----BEGIN PGP MESSAGE-----"));
         assertThat(message.trim(), endsWith("-----END PGP MESSAGE-----"));
