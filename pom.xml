@@ -4,12 +4,12 @@
 
     <groupId>rs.ltt.autocrypt</groupId>
     <artifactId>autocrypt</artifactId>
-    <version>0.4.1</version>
+    <version>0.4.2</version>
     <packaging>pom</packaging>
 
     <name>Java Autocrypt library</name>
-    <description>A Java 8+ library that implements the Autocrypt Level 1 specification</description>
-    <url>https://github.com/iNPUTmice/lttrs-autocrypt</url>
+    <description>A Java 11+ library that implements the Autocrypt Level 1 specification</description>
+    <url>https://codeberg.org/iNPUTmice/lttrs-autocrypt</url>
 
     <licenses>
         <license>
@@ -34,9 +34,9 @@
     </modules>
 
     <scm>
-        <connection>scm:git:git://github.com/iNPUTmice/lttrs-autocrypt.git</connection>
-        <developerConnection>scm:git:ssh://github.com/iNPUTmice/lttrs-autocrypt.git</developerConnection>
-        <url>https://github.com/iNPUTmice/lttrs-autocrypt/tree/master/</url>
+        <connection>scm:git:git://codeberg.org/iNPUTmice/lttrs-autocrypt.git</connection>
+        <developerConnection>scm:git:ssh://codeberg.org/iNPUTmice/lttrs-autocrypt.git</developerConnection>
+        <url>https://codberg.org/iNPUTmice/lttrs-autocrypt/</url>
     </scm>
 
     <distributionManagement>

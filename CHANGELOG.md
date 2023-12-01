@@ -1,3 +1,8 @@
+### 0.4.2 (2023-12-01)
+
+* Bump pgpainless version
+* Move code to Codeberg
+
 ### 0.4.1 (2022-01-27)
 
 * Fix NPE in Autocrypt Plugin if no From address has been set
